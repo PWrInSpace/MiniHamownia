@@ -56,8 +56,8 @@
 #define PRESS_SENS 36
 
 // mySD
-#define MOSI 25
-#define MISO 27
+#define MOSI 27
+#define MISO 25
 #define SCK 26
 #define CS 33
 
@@ -67,9 +67,9 @@
 #define VALVE_CLOSE 0
 
 BluetoothSerial BTSerial;
-DCValve Valve(DCIN1, DCIN2, 69, LIM_SW_1, LIM_SW_2);
+DCValve Valve(DCIN1, DCIN2, 69, LIM_SW_2, LIM_SW_1);
 HX711_ADC LoadCell(DOUT, CLK);
-
+SDCard sdCard(27, 25, 26, 33);
 //SoftwareSerial myserial(5, 6);  //RX TX
 
 int dlug;
@@ -97,7 +97,7 @@ bool valveOpenBool = false;
 bool valveCloseBool = false;
 uint32_t igniterDelay = 10000;
 uint32_t valveOpenDelay = igniterDelay + 10000;
-uint32_t valveCloseDelay = valveCloseDelay + 2300;
+uint32_t valveCloseDelay = valveOpenDelay + 2300;
 
 uint8_t valveState(uint8_t limit_sw1, uint8_t limit_sw2)
 {
@@ -113,22 +113,6 @@ uint8_t valveState(uint8_t limit_sw1, uint8_t limit_sw2)
   else
     return VALVE_BETWEEN;
 }
-
-SDCard sdCard(25, 27, 26, 33);
-//Stworzenie pliku
-/*
-void sd_create()
-{
-  //Utworzenie nazwy pliku
-  //timestampem probowałem ale arduino nie ma zegara czasu rzeczywistego
-  file_name = "/test" + String(random(1000)) + ".txt";
-  if (!mySD.write(file_name, "Time(ms); Force; Pressure; Valve_state; Igniter")) //Sprawdzenie czy plik sie otworzyl
-  {
-    BTSerial.println("mySD sie zjebalo");
-    while (true)
-      delay(100);
-  }
-}*/
 
 void setup()
 {
@@ -157,7 +141,7 @@ void setup()
   Valve.init();
 
   randomSeed(analogRead(A0));
-  valveCloseBool = true;
+  //valveCloseBool = true;
 
   if (LoadCell.getTareTimeoutFlag())
   { //sprawdzenie czy jakieś dane przychodzą z belki
@@ -173,24 +157,15 @@ void setup()
   LoadCell.setSamplesInUse(1);
 
   //Inicjalizacja karty mySD
-  /*
+  
   if(!sdCard.init()){
     digitalWrite(ERROR_LED, HIGH);
     while(true){
-      Serial.println("SD error");
+      BTSerial.println("SD error");
       delay(500);
     }
-  }*/
-  /*if (!mySD.init())
-  {
-    digitalWrite(ERROR_LED, HIGH);
-    while (true)
-    {
-      BTSerial.println("Brak karty mySD\n");
-      delay(500);
-    } //nic nie rób!!
-  }*/
-
+  }
+  Valve.valveClose((void *)'c');
 }
 
 void loop()
@@ -249,33 +224,38 @@ void loop()
   {
     if ((millis() - sd_time > igniterDelay) && !igniterBool)
     {
+      BTSerial.println("ogein");
       digitalWrite(IGNITER, HIGH);
       igniterBool = true;
     }
     if ((millis() - sd_time > igniterDelay + 1000) && !igniterOffBool)
     {
+      BTSerial.println("noogein");
       digitalWrite(IGNITER, LOW);
       igniterOffBool = true;
     }
     if ((millis() - sd_time > valveOpenDelay) && !valveOpenBool)
     {
+      BTSerial.println("valve_open");
       Valve.valveOpen((void *)'c');
       valveOpenBool = true;
     }
     if ((millis() - sd_time > valveCloseDelay) && !valveCloseBool)
     {
+      BTSerial.println("valve_close");
       Valve.valveClose((void *)'c');
       valveCloseBool = true;
     }
   }
   data_string += String(valveState(LIM_SW_1, LIM_SW_2)) + "; " + String(igniterBool) + "; ";
-    //mySD.write(file_name, data_string);
+  
+  if(start){
+    sdCard.write("/teeeest.txt", data_string + "\n");
+  }       
 
-    if ((iter++) == 100)
-      {
-        //Serial.println(data_string);
-        iter = 0;
-         BTSerial.println(data_string); //wysyła dane po uarcie
-      }
-       
+  if ((iter++) == 100){
+    iter = 0;
+    BTSerial.println(data_string); //wysyła dane po uarcie
+  }
+  
 }
