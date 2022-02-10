@@ -33,24 +33,24 @@ String BluetoothUI::readString(){
 }
 
 void BluetoothUI::printTimers(){
-    Serial.print("Calibration Factor: ");
-    Serial.println(calibrationFactor);
-    Serial.print("Count down: ");
-    Serial.println(countDownTime);
+    BTSerial.print("Calibration Factor: ");
+    BTSerial.println(calibrationFactor);
+    BTSerial.print("Count down: ");
+    BTSerial.println(countDownTime);
 
-    Serial.print("Valve 1: ");
-    firstValveEnable > 0 ? Serial.println("Enable"): Serial.println("Disable");
-    Serial.print("Open time: ");
-    Serial.println(firstValveOpenTime);
-    Serial.print("Close time: ");
-    Serial.println(firstValveCloseTime);
+    BTSerial.print("Valve 1: ");
+    firstValveEnable > 0 ? BTSerial.println("Enable"): BTSerial.println("Disable");
+    BTSerial.print("Open time: ");
+    BTSerial.println(firstValveOpenTime);
+    BTSerial.print("Close time: ");
+    BTSerial.println(firstValveCloseTime);
 
-    Serial.print("Valve 2: ");
-    secondValveEnable > 0 ? Serial.println("Enable"): Serial.println("Disable");
-    Serial.print("Open time: ");
-    Serial.println(secondValveOpenTime);
-    Serial.print("Close time: ");
-    Serial.println(secondValveCloseTime);
+    BTSerial.print("Valve 2: ");
+    secondValveEnable > 0 ? BTSerial.println("Enable"): BTSerial.println("Disable");
+    BTSerial.print("Open time: ");
+    BTSerial.println(secondValveOpenTime);
+    BTSerial.print("Close time: ");
+    BTSerial.println(secondValveCloseTime);
 
 }
 

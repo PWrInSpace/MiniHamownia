@@ -28,7 +28,7 @@ class BluetoothUI{
     uint16_t getCalibrationFactor() const;
     void setCountDownTime(uint16_t time);
     uint16_t getCountDownTime() const;
-    void setValveOpenTimer(uint32_t time, uint8_t valve);  //write to flash
+    void setValveOpenTimer(uint32_t time, uint8_t valve); 
     uint32_t getValveOpenTimer(uint8_t valve);
     void setValveCloseTimer(uint32_t time, uint8_t valve);
     uint32_t getValveCloseTimer(uint8_t valve);

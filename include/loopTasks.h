@@ -1,7 +1,8 @@
 #ifndef LOOP_TASKS_HH
 #define LOOP_TASKS_HH
 
-void bluetoothTask(void *arg);
-void receiveTask(void *arg);
+void btReceiveTask(void *arg);
+void btTransmitTask(void *arg);
+void mainTask(void *arg);
 
 #endif

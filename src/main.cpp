@@ -1,35 +1,35 @@
 #include "Arduino.h"
 #include "btUI.h"
 #include "BluetoothSerial.h"
+#include "stateMachine.h"
+#include "loopTasks.h"
 
-BluetoothUI btui;
-
-bool led = false;
+BluetoothUI btUI;
+StateMachine stateMachine;
 
 void setup()
 {
-    Serial.begin(115200);
-    pinMode(2, OUTPUT);
-    btui.begin();
-
-    btui.printTimers();
-    /*
-    while(!btui.isConnected()){
-        led = !led;
-        digitalWrite(2, led);
-        delay(500);
+    Serial.begin(115200);  //debug only
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
+    //pinMode(2, OUTPUT);
+    
+    btUI.begin();
+    while(!btUI.isConnected()){
+        vTaskDelay(250 / portTICK_PERIOD_MS); //wait until connect
     }
+    btUI.printTimers();
 
-    btui.println("Connected!");
-    digitalWrite(2, HIGH);
-    */
+    stateMachine.btRxQueue = xQueueCreate(Rx_QUEUE_LENGTH, sizeof(String));
+    stateMachine.btTxQueue = xQueueCreate(Tx_QUEUE_LENGTH, sizeof(String));
+    
+    xTaskCreatePinnedToCore(btReceiveTask, "Bt rx task", 16384, NULL, 2, &stateMachine.btRxTask, PRO_CPU_NUM);
+    xTaskCreatePinnedToCore(btTransmitTask, "Bt tx task", 16384, NULL, 1, &stateMachine.btTxTask, PRO_CPU_NUM);
+    xTaskCreatePinnedToCore(mainTask, "main task", 16384, NULL, 2, &stateMachine.mainTask, APP_CPU_NUM);
+    
+    vTaskDelete(NULL);
 }
 
 
-void loop()
-{
-    if(btui.available()){
-        btui.println(btui.readString());
-    }
-    delay(1000);
+void loop(){
+    
 }
