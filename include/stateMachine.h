@@ -4,8 +4,8 @@
 enum StateMachine{
     DISCONNECTED = 0,
     IDLE,
-    COUTDOWN,
-    STAICF_FIRE,
+    COUNTDOWN,
+    STATIC_FIRE,
     ABORT
 };
 

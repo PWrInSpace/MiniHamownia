@@ -1,55 +1,38 @@
 #include "loopTasks.h"
 #include "BluetoothSerial.h"
+#include "btUI.h"
+#include "stateMachine.h"
+
+extern BluetoothUI btui;
+StateMachine state = DISCONNECTED;
 
 //main security task xD
-
 //pamiętać że gdy jest już test, nie wrzucać programu do statu disconnected jeżeli dosżło by do utraty łaczności
 void bluetoothTask(void* arg){
-    BluetoothSerial BTSerial;
-    
-    BTSerial.begin("rozkurwiacz");
-    pinMode(BUZZER, OUTPUT); //move to pinout.h
-    
+    //pinMode(BUZZER, OUTPUT); //move to pinout.h
+
     while(true){
-        if(BTSerial.hasClient() < 1){
-            /*
-            if(state != disconnect && state < staticFire){
-                //state = disconnected
-                disconnect sound
-                for(int i=0; i<2; i-=-1){
-                    digitalWrite(BUZZER, HIGH);
-                    delay(100*(i+1));
-                    digitalWrite(BUZZER, LOW);
-                    delay(100*(i+1));
-                    digitalWrite(BUZZER, HIGH);
-                    delay(200*(i+1));
-                    digitalWrite(BUZZER, LOW);
-                    delay(200*(i+1));
-                }
+        if(btui.isConnected()){
+            if(btui.available()){
+
+            }    
+        
+        }else{
+            if(state != DISCONNECTED && state < STATIC_FIRE){
                 
-                while(BTSerial.hasClient() < 1){
+                //disconnected sound
+                while(!btui.isConnected()){
                     delay(250);
                 }
 
                 //connected sound
-                digitalWrite(BUZZER, HIGH);
-                delay(100);
-                digitalWrite(BUZZER, LOW);
-                delay(100);
-                digitalWrite(BUZZER, HIGH);
-                delay(100);
-                digitalWrite(BUZZER, LOW);
-
             }else if(state == COUNTDOWN){
-                ABORT, stop test 
+                state = ABORT;
             }else{
                 //sd_log, dissconnected in state STATE at: TIME
             }
-            */
-        }else{
-            //bt handler
         }
-    
-        vTaskDelay(100/portTICK_PERIOD_MS)
+        
+        vTaskDelay(100/portTICK_PERIOD_MS);
     }
 }

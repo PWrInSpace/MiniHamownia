@@ -1,25 +1,35 @@
 #include "Arduino.h"
-
-#include "HX711_ADC.h"
-#include <SPI.h>
-#include "SDcard.h"
+#include "btUI.h"
 #include "BluetoothSerial.h"
-#include "DCValve.h"
-#include "pinout.h"
 
-BluetoothSerial BTSerial;
-DCValve Valve(DCIN1, DCIN2, 69, LIM_SW_2, LIM_SW_1);
-HX711_ADC LoadCell(DOUT, CLK);
-SDCard sdCard(27, 25, 26, 33);
+BluetoothUI btui;
+
+bool led = false;
 
 void setup()
 {
-  
+    Serial.begin(115200);
+    pinMode(2, OUTPUT);
+    btui.begin();
 
+    btui.printTimers();
+    /*
+    while(!btui.isConnected()){
+        led = !led;
+        digitalWrite(2, led);
+        delay(500);
+    }
+
+    btui.println("Connected!");
+    digitalWrite(2, HIGH);
+    */
 }
 
 
 void loop()
 {
-
+    if(btui.available()){
+        btui.println(btui.readString());
+    }
+    delay(1000);
 }
