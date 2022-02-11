@@ -139,7 +139,7 @@ uint16_t BluetoothUI::getCalibrationFactor() const{
 }
 
 bool BluetoothUI::setCountDownTime(uint16_t time){
-    if(countDownTime >= 10000){
+    if(time >= 10000){
         countDownTime = time;
         return true;
     }

@@ -5,4 +5,9 @@ void btReceiveTask(void *arg);
 void btTransmitTask(void *arg);
 void uiTask(void *arg);
 
+void stateTask(void *arg);
+void dataTask(void *arg);
+void sdTask(void *arg);
+void staticFireTask(void *arg);
+
 #endif

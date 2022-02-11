@@ -2,12 +2,11 @@
 #include "BluetoothSerial.h"
 #include "btUI.h"
 #include "stateMachine.h"
+#include "SDcard.h"
 
 extern BluetoothUI btUI;
 extern StateMachine stateMachine;
 
-//main security task xD
-//pamiętać że gdy jest już test, nie wrzucać programu do statu disconnected jeżeli dosżło by do utraty łaczności
 void btReceiveTask(void* arg){
     //pinMode(BUZZER, OUTPUT); //move to pinout.h
     String msg;
@@ -59,44 +58,14 @@ void btTransmitTask(void *arg){
     }
 }
 
-void stateTask(void *arg){
-    State previousState = DISCONNECTED;
-    
-    while(1){
-        if(ulTaskNotifyTake(pdTRUE, portMAX_DELAY) == pdTRUE){
-            //critical section begin
-            //portENTER_CRITICAL(&spinlock);
-            if(stateMachine.state == DISCONNECTED){
-                //uiTask suspend
-                //dataTask suspend
-                //sdTask suspend ??
-            }else if(stateMachine.state == IDLE){
-                //
-            }else if(stateMachine.state == CALIBRATION){
-                
-            }else if(stateMachine.state == COUNTDOWN){
-
-            }else if(stateMachine.state == STATIC_FIRE){
-
-            }else if(stateMachine.state == ABORT){
-                //staticFireTask delete 
-                //
-            }
-            //portEXIT_CRITICAL(&spinlock);
-            //critical section end
-
-            previousState = stateMachine.state;
-        }
-        vTaskDelay(10 / portTICK_PERIOD_MS);
-    }
-}
-
 void uiTask(void *arg){
     String btMsg;
     String prefix = "MH;";  //prefix
     String command;
     String time;
-    String btTx; 
+    String btTx;
+    TickType_t askTime = xTaskGetTickCount() * portTICK_PERIOD_MS; 
+    TickType_t askTimeOut = 15000;
 
     while(1){
         if(xQueueReceive(stateMachine.btRxQueue, (void*)&btMsg, 10) == pdTRUE){
@@ -130,7 +99,7 @@ void uiTask(void *arg){
                 //valve enable
                 }else if(command == "VE1;" || command == "VE2;"){
                     if(btUI.setValveState(time.toInt(), command[2] - 48)){
-                        btTx = "Valve " + String(command[2] - 48) + " enable";
+                        btTx = "Valve " + String(command[2] - 48) + (btUI.getValveState(command[2] - 48) > 0 ? " enable" : " disable");
                     }else{
                         btTx = "Failed to save";
                     }
@@ -145,13 +114,18 @@ void uiTask(void *arg){
 
                 //calibration
                 }else if(command == "CAL;"){
-                    btTx = "Calibration begin";
-                    //start calibration
+                    stateMachine.state = CALIBRATION;
+                    xTaskNotifyGive(stateMachine.stateTask);
 
-                //show current setings 
+                    btTx = "Calibration begin";
+                    
+                //save to flash 
                 }else if(command == "WCS;"){
                     btUI.saveToFlash();
+
                     btTx = "Saved to flash";
+                
+                //show current setings
                 }else if(command == "SCS;"){
                     btTx = "SCS";
 
@@ -162,16 +136,30 @@ void uiTask(void *arg){
 
                 //start static fire task
                 }else if(command == "SFS;"){
+                    askTime = xTaskGetTickCount() * portTICK_PERIOD_MS;
+                    //check timers
+                    //show timers
+                    //ask
                     btTx = "Static fire task created";
-                    //check timers 
-                    //change state to countdown
-
+                }else if(command == "SFY;"){
+                    if((xTaskGetTickCount() * portTICK_PERIOD_MS) - askTime < askTimeOut){
+                        btTx = "create static fire task";
+                        stateMachine.state = COUNTDOWN;
+                        xTaskNotifyGive(stateMachine.stateTask);
+                    }else{
+                        btTx = "Static fire ask time out";
+                    }
+                
+                //turn off esp 
+                }else if(command == "OFF;"){
+                    btTx = "Esp is going to sleep";
+                    
                 //error handling
                 }else{
                     btTx = "Unknow command";
                     
                 }
-
+              
             }else{ 
                 btTx = "Unknow command";  
             }
@@ -188,3 +176,121 @@ void uiTask(void *arg){
 
 //sama sekwencja testowa na przerwaniu?
 //abort to przerwanie
+
+//***********************************//
+//             APP_CPU               //
+//***********************************//
+
+void stateTask(void *arg){
+    String stateMsg;
+    while(1){
+        if(ulTaskNotifyTake(pdTRUE, portMAX_DELAY) == pdTRUE){
+            //critical section begin
+            portENTER_CRITICAL(&stateMachine.spinlock);
+            
+            if(stateMachine.state == DISCONNECTED){
+                //suspend tasks
+                vTaskSuspend(stateMachine.uiTask);
+                vTaskSuspend(stateMachine.dataTask);
+                
+                //security check
+                if(stateMachine.staticFireTask != NULL){
+                    vTaskDelete(stateMachine.staticFireTask);
+                    stateMachine.staticFireTask = NULL;
+                }
+
+            }else if(stateMachine.state == IDLE){
+                vTaskResume(stateMachine.uiTask);
+                vTaskResume(stateMachine.dataTask);
+                
+                stateMsg = "State: IDLE"; 
+
+            }else if(stateMachine.state == CALIBRATION){
+                //xTaskCreatePinnedToCore(calibrationTask, "calibration task", 16384, )
+                
+                stateMsg = "State: CALIBRATION";
+            }else if(stateMachine.state == COUNTDOWN){
+                //xTaskCreatePinnedToCore(calibrationTask, "calibration task", 16384, )
+                stateMsg = "State: COUNTDOWN";
+
+            }else if(stateMachine.state == STATIC_FIRE){
+                stateMsg = "State: STATIC_FIRE";
+                
+            }else if(stateMachine.state == ABORT){
+                if(stateMachine.staticFireTask != NULL){
+                    vTaskDelete(stateMachine.staticFireTask);
+                    stateMachine.staticFireTask = NULL;
+                }
+
+                stateMsg = "State: ABORT";
+            }
+
+            if(stateMachine.state != DISCONNECTED){
+                xQueueSend(stateMachine.btTxQueue, (void*)&stateMsg, 0);
+            }
+
+            //critical section end
+            portEXIT_CRITICAL(&stateMachine.spinlock);
+        }
+        vTaskDelay(10 / portTICK_PERIOD_MS);
+    }
+}
+
+void dataTask(void *arg){
+    String dataFrame;
+
+    while(1){
+        dataFrame.clear();
+
+        //dataFrame += String(analogRead(A0)); example
+
+        ///..... 
+
+
+        if(stateMachine.state == COUNTDOWN || stateMachine.state == STATIC_FIRE){
+            xQueueSend(stateMachine.sdQueue, (void*)&dataFrame, 10);
+        }
+        /*
+        if(btDataFlag){
+            xQueueSend(stateMachine.btTxQueue, (void*)&dataFrame, 10);    
+        }
+        */
+       vTaskDelay(10 / portTICK_PERIOD_MS);
+    }
+}
+
+void sdTask(void *arg){
+    SDCard sd(0, 0, 0, 0); //mmiso mosi a
+    String data;
+    String logPath = "/logs.txt";
+    String dataPath = "/data.txt";
+
+    vTaskDelay(100 / portTICK_RATE_MS);
+
+    if(!sd.init()){
+        data = "Sd init error!";
+        while(1){
+            xQueueSend(stateMachine.btTxQueue, (void*)&data, 10);
+            vTaskDelay(1000 / portTICK_PERIOD_MS);
+        }
+    }
+
+    while(1){
+        xQueueReceive(stateMachine.sdQueue, (void*)&data, portMAX_DELAY);
+
+        if(data.startsWith("LOG: ")){
+            if(!sd.write(logPath, data)){
+                //error handling
+            }
+        }else{
+            if(!sd.write(dataPath, data)){
+                //error handling
+            }
+        }
+    }
+}
+
+
+void staticFireTask(void *arg){
+ 
+}
