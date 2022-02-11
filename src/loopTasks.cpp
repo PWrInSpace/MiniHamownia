@@ -20,21 +20,24 @@ void btReceiveTask(void* arg){
         }else{
             if(stateMachine.state != DISCONNECTED && stateMachine.state < COUNTDOWN){
                 //disconnected sound
+                
                 while(!btUI.isConnected()){
                     vTaskDelay(50 / portTICK_PERIOD_MS);
                 }
                 //connected sound
+
             }else if(stateMachine.state == COUNTDOWN){
                 //spinlock?
                 stateMachine.state = ABORT;
-                //spinlock?
-                btUI.println("ABORT!");
+                xTaskNotifyGive(stateMachine.stateTask);
             }else{
-                //String log = "Disconnected in state: " + String(stateMachine.state);
-                //sd_log, dissconnected in state STATE at: TIME
+                msg = "LOG: Disconnected in state: " + String(stateMachine.state);
+                xQueueSend(stateMachine.sdQueue, (void*)&msg, 0);
             }
         }
         
+        msg.clear();
+
         vTaskDelay(10 / portTICK_PERIOD_MS);
     }
 }
@@ -75,7 +78,7 @@ void uiTask(void *arg){
                 xTaskNotifyGive(stateMachine.stateTask); 
 
             //frame check
-            }else if(checkCommand(btMsg, prefix, ';', 2)){
+            }else if(checkCommand(btMsg, prefix, ';', 2) && (stateMachine.state == IDLE)){
                 btMsg.remove(0, prefix.length()); //remove MH; prefix
                 command = btMsg.substring(0, 4); //get command
                 time = btMsg.substring(4);  //get timer
@@ -140,14 +143,16 @@ void uiTask(void *arg){
                     //check timers
                     //show timers
                     //ask
-                    btTx = "Static fire task created";
+                    btTx = "Do you want to start test with this settings? Write MH;SFY;";
+
+                //
                 }else if(command == "SFY;"){
                     if((xTaskGetTickCount() * portTICK_PERIOD_MS) - askTime < askTimeOut){
                         btTx = "create static fire task";
                         stateMachine.state = COUNTDOWN;
                         xTaskNotifyGive(stateMachine.stateTask);
                     }else{
-                        btTx = "Static fire ask time out";
+                        btTx = "Static fire ask time out!";
                     }
                 
                 //turn off esp 
@@ -156,18 +161,16 @@ void uiTask(void *arg){
                     
                 //error handling
                 }else{
-                    btTx = "Unknow command";
+                    btTx = "Unknown command";
                     
                 }
-              
+
+                xQueueSend(stateMachine.btTxQueue, (void*)&btTx, 10);
+            
             }else{ 
-                btTx = "Unknow command";  
+                btTx = "Unknown command or not IDLE state";  
+                xQueueSend(stateMachine.btTxQueue, (void*)&btTx, 10);
             }
-
-            xQueueSend(stateMachine.btTxQueue, (void*)&btTx, 10);
-
-        }else{
-            //calibration??
         }
 
         vTaskDelay(10 / portTICK_PERIOD_MS);
@@ -210,7 +213,9 @@ void stateTask(void *arg){
                 
                 stateMsg = "State: CALIBRATION";
             }else if(stateMachine.state == COUNTDOWN){
-                //xTaskCreatePinnedToCore(calibrationTask, "calibration task", 16384, )
+                xTaskCreatePinnedToCore(staticFireTask, "static fire task", 16384, NULL, 3, &stateMachine.staticFireTask, APP_CPU_NUM);
+                //check that this task will work only one time
+
                 stateMsg = "State: COUNTDOWN";
 
             }else if(stateMachine.state == STATIC_FIRE){
@@ -221,7 +226,6 @@ void stateTask(void *arg){
                     vTaskDelete(stateMachine.staticFireTask);
                     stateMachine.staticFireTask = NULL;
                 }
-
                 stateMsg = "State: ABORT";
             }
 
@@ -240,7 +244,7 @@ void dataTask(void *arg){
     String dataFrame;
 
     while(1){
-        dataFrame.clear();
+        dataFrame = "";
 
         //dataFrame += String(analogRead(A0)); example
 
@@ -266,7 +270,7 @@ void sdTask(void *arg){
     String dataPath = "/data.txt";
 
     vTaskDelay(100 / portTICK_RATE_MS);
-
+    /*
     if(!sd.init()){
         data = "Sd init error!";
         while(1){
@@ -274,6 +278,7 @@ void sdTask(void *arg){
             vTaskDelay(1000 / portTICK_PERIOD_MS);
         }
     }
+    */
 
     while(1){
         xQueueReceive(stateMachine.sdQueue, (void*)&data, portMAX_DELAY);
@@ -292,5 +297,56 @@ void sdTask(void *arg){
 
 
 void staticFireTask(void *arg){
- 
+    TickType_t countDownTime = btUI.getCountDownTime();
+    uint32_t firstValveOpenTime = btUI.getValveOpenTimer(FIRST_VALVE);
+    uint32_t firstValveCloseTime = btUI.getValveCloseTimer(FIRST_VALVE);
+    uint8_t firstValveEnable = btUI.getValveState(FIRST_VALVE);
+    uint32_t secondValveOpenTime = btUI.getValveOpenTimer(SECOND_VALVE);
+    uint32_t secondValveCloseTime = btUI.getValveCloseTimer(SECOND_VALVE);
+    uint8_t secondValveEnable = btUI.getValveState(SECOND_VALVE);
+    TickType_t startTime;
+    TickType_t stopTime;
+    String msg;
+
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
+
+    startTime = xTaskGetTickCount();
+    stopTime = (countDownTime + secondValveCloseTime) * 2 + startTime;
+    countDownTime += startTime;
+
+
+    while((countDownTime - (xTaskGetTickCount() * portTICK_PERIOD_MS)) > 0){
+        int timeInSec = (countDownTime - (xTaskGetTickCount() * portTICK_PERIOD_MS)) / 1000;
+        
+        if((timeInSec > 10) && ((timeInSec % 5) == 0)){ //print every 5sec
+            msg = String(timeInSec);
+            xQueueSend(stateMachine.btTxQueue, (void*)&msg, 0);
+        }else if(timeInSec <= 10){ //10, 9, 8 ...
+            msg = String(timeInSec);
+            xQueueSend(stateMachine.btTxQueue, (void*)&msg, 0);    
+        }
+        /* not neccesery
+        if(stateMachine.state == ABORT){
+            vTaskDelete(NULL);
+        }
+        */
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+    }
+
+    msg = "static fire fruuuu";
+    xQueueSend(stateMachine.btTxQueue, (void*)&msg, 0);
+
+    while(stopTime > xTaskGetTickCount() * portTICK_PERIOD_MS){
+        vTaskDelay(100 / portTICK_PERIOD_MS);
+    }
+
+    msg = "usuwanie taska";
+    xQueueSend(stateMachine.btTxQueue, (void*)&msg, 0);
+
+
+    stateMachine.state = IDLE;
+    xTaskNotifyGive(stateMachine.stateTask);
+
+
+    vTaskDelete(NULL);   
 }
