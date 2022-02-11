@@ -24,7 +24,7 @@ void setup()
     
     xTaskCreatePinnedToCore(btReceiveTask, "Bt rx task", 16384, NULL, 2, &stateMachine.btRxTask, PRO_CPU_NUM);
     xTaskCreatePinnedToCore(btTransmitTask, "Bt tx task", 16384, NULL, 1, &stateMachine.btTxTask, PRO_CPU_NUM);
-    xTaskCreatePinnedToCore(mainTask, "main task", 16384, NULL, 2, &stateMachine.mainTask, APP_CPU_NUM);
+    xTaskCreatePinnedToCore(uiTask, "User interface task", 16384, NULL, 2, &stateMachine.uiTask, PRO_CPU_NUM);
     
     vTaskDelete(NULL);
 }

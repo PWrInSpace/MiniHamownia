@@ -138,15 +138,20 @@ uint16_t BluetoothUI::getCalibrationFactor() const{
     return calibrationFactor;
 }
 
-void BluetoothUI::setCountDownTime(uint16_t time){
-    countDownTime = time;
+bool BluetoothUI::setCountDownTime(uint16_t time){
+    if(countDownTime >= 10000){
+        countDownTime = time;
+        return true;
+    }
+
+    return false;
 }
 
 uint16_t BluetoothUI::getCountDownTime() const{
     return countDownTime;
 }
 
-void BluetoothUI::setValveOpenTimer(uint32_t time, uint8_t valve){
+bool BluetoothUI::setValveOpenTimer(uint32_t time, uint8_t valve){
     switch(valve){
         case 1:
             firstValveOpenTime = time;
@@ -155,8 +160,10 @@ void BluetoothUI::setValveOpenTimer(uint32_t time, uint8_t valve){
             secondValveOpenTime = time;
             break;
         default:
-            return;
+            return false;
     }
+
+    return true;
 }
 
 uint32_t BluetoothUI::getValveOpenTimer(uint8_t valve){
@@ -174,7 +181,7 @@ uint32_t BluetoothUI::getValveOpenTimer(uint8_t valve){
     return result;
 }
 
-void BluetoothUI::setValveCloseTimer(uint32_t time, uint8_t valve){
+bool BluetoothUI::setValveCloseTimer(uint32_t time, uint8_t valve){
     switch(valve){
         case 1:
             firstValveCloseTime = time;
@@ -183,8 +190,10 @@ void BluetoothUI::setValveCloseTimer(uint32_t time, uint8_t valve){
             secondValveCloseTime = time;
             break;
         default:
-            return;
+            return false;
     }
+
+    return true;
 }
 
 uint32_t BluetoothUI::getValveCloseTimer(uint8_t valve){
@@ -202,7 +211,7 @@ uint32_t BluetoothUI::getValveCloseTimer(uint8_t valve){
     return result;
 }
 
-void BluetoothUI::setValveState(uint8_t state, uint8_t valve){
+bool BluetoothUI::setValveState(uint8_t state, uint8_t valve){
     if(state > 1) state = 1;
 
     switch(valve){
@@ -213,8 +222,10 @@ void BluetoothUI::setValveState(uint8_t state, uint8_t valve){
             secondValveEnable = state;
             break;
         default:
-            return;
+            return false;
     }
+    
+    return true;
 }
 
 uint8_t BluetoothUI::getValveState(uint8_t valve){
@@ -244,6 +255,21 @@ void BluetoothUI::setval(){
     secondValveEnable = 0;
 }*/
 
+
+bool checkCommand(String msg, String prefix, char delimiter, uint8_t delimiter_num){
+    uint8_t msgLength = msg.length();
+    uint8_t counter = 0;
+
+    if(!msg.startsWith(prefix)) return false;
+
+    for(int i = 0; i < msgLength; ++i){
+        if(msg[i] == delimiter) counter++;
+    }
+
+    if(counter != delimiter_num) return false;
+
+    return true;
+}
 
 
 

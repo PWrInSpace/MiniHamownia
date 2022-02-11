@@ -9,6 +9,7 @@
 enum State{
     DISCONNECTED = 0,
     IDLE,
+    CALIBRATION,
     COUNTDOWN,
     STATIC_FIRE,
     ABORT
@@ -18,12 +19,14 @@ typedef struct StateMachine{
     State state = DISCONNECTED;
     TaskHandle_t btRxTask = NULL;
     TaskHandle_t btTxTask = NULL;
-    TaskHandle_t mainTask = NULL;
+    TaskHandle_t uiTask = NULL;
+    TaskHandle_t stateTask = NULL;
     QueueHandle_t btRxQueue = NULL;
     QueueHandle_t btTxQueue = NULL;
     QueueHandle_t dataQueue = NULL;
     
 } StateMachine;
+
 
 
 #endif

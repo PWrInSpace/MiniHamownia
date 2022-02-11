@@ -26,13 +26,13 @@ class BluetoothUI{
     
     void setCalibrationFactor(uint16_t cf);
     uint16_t getCalibrationFactor() const;
-    void setCountDownTime(uint16_t time);
+    bool setCountDownTime(uint16_t time);
     uint16_t getCountDownTime() const;
-    void setValveOpenTimer(uint32_t time, uint8_t valve); 
+    bool setValveOpenTimer(uint32_t time, uint8_t valve); 
     uint32_t getValveOpenTimer(uint8_t valve);
-    void setValveCloseTimer(uint32_t time, uint8_t valve);
+    bool setValveCloseTimer(uint32_t time, uint8_t valve);
     uint32_t getValveCloseTimer(uint8_t valve);
-    void setValveState(uint8_t state, uint8_t valve);
+    bool setValveState(uint8_t state, uint8_t valve);
     uint8_t getValveState(uint8_t valve);
 
     bool checkTimers();  //check timers sequence 
@@ -40,12 +40,18 @@ class BluetoothUI{
     void println(const String & message);
     bool isConnected();
     void printTimers();
-    //void setval();
     bool available();
+    
     String readString();
+    //void setval();
+
+
     void saveToFlash();
     private:
     void readFlash();
 };
+
+bool checkCommand(String msg, String prefix, char delimeter, uint8_t delimeter_num = 1);
+
 
 #endif

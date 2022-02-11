@@ -3,6 +3,6 @@
 
 void btReceiveTask(void *arg);
 void btTransmitTask(void *arg);
-void mainTask(void *arg);
+void uiTask(void *arg);
 
 #endif
