@@ -32,26 +32,40 @@ String BluetoothUI::readString(){
     return result;
 }
 
-void BluetoothUI::printTimers(){
-    BTSerial.print("Calibration Factor: ");
-    BTSerial.println(calibrationFactor);
-    BTSerial.print("Count down: ");
-    BTSerial.println(countDownTime);
+bool BluetoothUI::checkTimers(){
+    if(countDownTime < 10000){
+        return false;
+    }
 
-    BTSerial.print("Valve 1: ");
-    firstValveEnable > 0 ? BTSerial.println("Enable"): BTSerial.println("Disable");
-    BTSerial.print("Open time: ");
-    BTSerial.println(firstValveOpenTime);
-    BTSerial.print("Close time: ");
-    BTSerial.println(firstValveCloseTime);
+    //check if open close time is bigger than open time
+    if(firstValveEnable && ((firstValveOpenTime > firstValveCloseTime) && (firstValveCloseTime != 0))){ 
+        return false;
+    }
 
-    BTSerial.print("Valve 2: ");
-    secondValveEnable > 0 ? BTSerial.println("Enable"): BTSerial.println("Disable");
-    BTSerial.print("Open time: ");
-    BTSerial.println(secondValveOpenTime);
-    BTSerial.print("Close time: ");
-    BTSerial.println(secondValveCloseTime);
+    //close time is bigger than open time
+    if(secondValveEnable && ((secondValveOpenTime > secondValveCloseTime) && (secondValveCloseTime != 0))){ 
+        return false;
+    }
 
+    return true;
+}
+
+String BluetoothUI::timersDescription(){
+    String timersMsg;
+    timersMsg = "Calibration Factor: " + String(calibrationFactor) + "\n";
+    timersMsg += "Count down: " + String(countDownTime) + "\n\n";
+
+    timersMsg += "Valve 1: "; 
+    timersMsg += firstValveEnable > 0 ? "Enable" : "Disable";
+    timersMsg += "\nOpen time: " + String(firstValveOpenTime) + "\n";
+    timersMsg += "Close time: " + String(firstValveCloseTime) + "\n\n";
+    
+    timersMsg += "Valve 2: ";
+    timersMsg += secondValveEnable > 0 ? "Enable" : "Disable";
+    timersMsg += "\nOpen time: " + String(secondValveOpenTime) + "\n";
+    timersMsg += "Close time: " + String(secondValveCloseTime);
+
+    return timersMsg;
 }
 
 void BluetoothUI::saveToFlash(){

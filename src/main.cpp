@@ -15,11 +15,13 @@ void setup()
     
     btUI.begin();
     while(!btUI.isConnected()){
-        vTaskDelay(250 / portTICK_PERIOD_MS); //wait until connect
+        //Serial.println("Nie ma połączenia");
+        vTaskDelay(250 / portTICK_PERIOD_MS); 
     }
-    stateMachine.state = IDLE;
+    
+    Serial.println("Połączono");
     btUI.println("MiniHamownia v1.0 aka Rozkurwiacz");
-    btUI.printTimers();
+    btUI.println(btUI.timersDescription());
 
     stateMachine.btRxQueue = xQueueCreate(Rx_QUEUE_LENGTH, sizeof(String));
     stateMachine.btTxQueue = xQueueCreate(Tx_QUEUE_LENGTH, sizeof(String));
@@ -33,7 +35,11 @@ void setup()
     xTaskCreatePinnedToCore(dataTask,       "data task",  16384, NULL, 2, &stateMachine.dataTask,  APP_CPU_NUM);
     xTaskCreatePinnedToCore(sdTask,         "SD task",    16384, NULL, 1, &stateMachine.sdTask,    APP_CPU_NUM);
 
-    xTaskNotifyGive(stateMachine.stateTask); //first run, set state
+    //TO DO: check tasks
+
+    vTaskDelay(1000 / portTICK_PERIOD_MS); 
+
+    stateMachine.changeState(IDLE);
 
     vTaskDelete(NULL);
 }

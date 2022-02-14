@@ -26,6 +26,7 @@ typedef struct StateMachine{
     TaskHandle_t stateTask = NULL;
     TaskHandle_t sdTask = NULL;
     TaskHandle_t dataTask = NULL;
+    TaskHandle_t calibrationTask = NULL;
     TaskHandle_t staticFireTask = NULL;
     
     QueueHandle_t btRxQueue = NULL;
@@ -33,10 +34,14 @@ typedef struct StateMachine{
     QueueHandle_t sdQueue = NULL;
 
     portMUX_TYPE spinlock = portMUX_INITIALIZER_UNLOCKED;
-
-    //state mutex?
+    
+    void changeState(State _state){
+        //portENTER_CRITICAL(&spinlock);
+        state = _state;
+        //portEXIT_CRITICAL(&spinlock);
+        xTaskNotifyGive(stateTask);
+    }
+    
 } StateMachine;
-
-
 
 #endif

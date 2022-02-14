@@ -3,9 +3,15 @@
 #include "btUI.h"
 #include "stateMachine.h"
 #include "SDcard.h"
+#include "pinout.h"
 
 extern BluetoothUI btUI;
 extern StateMachine stateMachine;
+
+
+//***********************************//
+//             PRO_CPU               //
+//***********************************//
 
 void btReceiveTask(void* arg){
     //pinMode(BUZZER, OUTPUT); //move to pinout.h
@@ -27,9 +33,7 @@ void btReceiveTask(void* arg){
                 //connected sound
 
             }else if(stateMachine.state == COUNTDOWN){
-                //spinlock?
-                stateMachine.state = ABORT;
-                xTaskNotifyGive(stateMachine.stateTask);
+                stateMachine.changeState(ABORT);
             }else{
                 msg = "LOG: Disconnected in state: " + String(stateMachine.state);
                 xQueueSend(stateMachine.sdQueue, (void*)&msg, 0);
@@ -48,11 +52,9 @@ void btTransmitTask(void *arg){
     while(1){
         xQueueReceive(stateMachine.btTxQueue, (void*)&btMsg, portMAX_DELAY); //wait until data appear in queue
         if(btUI.isConnected()){
-            if(btMsg == "SCS"){
-                btUI.printTimers();
-            }else{
-                btUI.println(btMsg);
-            }
+          
+            btUI.println(btMsg);
+        
         }else{
             //error
         }
@@ -68,14 +70,13 @@ void uiTask(void *arg){
     String time;
     String btTx;
     TickType_t askTime = xTaskGetTickCount() * portTICK_PERIOD_MS; 
-    TickType_t askTimeOut = 15000;
+    TickType_t askTimeOut = 30000;
 
     while(1){
-        if(xQueueReceive(stateMachine.btRxQueue, (void*)&btMsg, 10) == pdTRUE){
+        if(xQueueReceive(stateMachine.btRxQueue, (void*)&btMsg, 1000) == pdTRUE){
             if(stateMachine.state == COUNTDOWN){ //message in countdown state
 
-                stateMachine.state = ABORT;
-                xTaskNotifyGive(stateMachine.stateTask); 
+                stateMachine.changeState(ABORT); 
 
             //frame check
             }else if(checkCommand(btMsg, prefix, ';', 2) && (stateMachine.state == IDLE)){
@@ -117,10 +118,10 @@ void uiTask(void *arg){
 
                 //calibration
                 }else if(command == "CAL;"){
-                    stateMachine.state = CALIBRATION;
-                    xTaskNotifyGive(stateMachine.stateTask);
+                    stateMachine.changeState(CALIBRATION);
+                    vTaskSuspend(NULL); //double suspend check
 
-                    btTx = "Calibration begin";
+                    btTx = "Calibration end";
                     
                 //save to flash 
                 }else if(command == "WCS;"){
@@ -130,7 +131,7 @@ void uiTask(void *arg){
                 
                 //show current setings
                 }else if(command == "SCS;"){
-                    btTx = "SCS";
+                    btTx = btUI.timersDescription();
 
                 //enable/disable data frame to user
                 }else if(command == "SDF;"){
@@ -139,26 +140,33 @@ void uiTask(void *arg){
 
                 //start static fire task
                 }else if(command == "SFS;"){
-                    askTime = xTaskGetTickCount() * portTICK_PERIOD_MS;
-                    //check timers
-                    //show timers
-                    //ask
-                    btTx = "Do you want to start test with this settings? Write MH;SFY;";
-
+                    //add Igniter continuity check
+                    if(digitalRead(CONTINUITY) == HIGH){
+                        if(btUI.checkTimers()){//check timers
+                            askTime = xTaskGetTickCount() * portTICK_PERIOD_MS; //start timer
+                            btTx = btUI.timersDescription(); //show timers
+                        
+                            btTx += "\n\nDo you want to start test with this settings? Write MH;SFY;"; //ask
+                        }else{
+                            btTx = "Invalid valve setings";
+                        }
+                    }else{
+                        btTx = "Lack of igniter continuity! :C";
+                    }
+                    
                 //
                 }else if(command == "SFY;"){
                     if((xTaskGetTickCount() * portTICK_PERIOD_MS) - askTime < askTimeOut){
                         btTx = "create static fire task";
-                        stateMachine.state = COUNTDOWN;
-                        xTaskNotifyGive(stateMachine.stateTask);
+                        stateMachine.changeState(COUNTDOWN);
                     }else{
                         btTx = "Static fire ask time out!";
                     }
                 
                 //turn off esp 
-                }else if(command == "OFF;"){
+                }else if(command == "RST;"){
                     btTx = "Esp is going to sleep";
-                    
+                
                 //error handling
                 }else{
                     btTx = "Unknown command";
@@ -176,9 +184,6 @@ void uiTask(void *arg){
         vTaskDelay(10 / portTICK_PERIOD_MS);
     }
 }
-
-//sama sekwencja testowa na przerwaniu?
-//abort to przerwanie
 
 //***********************************//
 //             APP_CPU               //
@@ -201,40 +206,56 @@ void stateTask(void *arg){
                     vTaskDelete(stateMachine.staticFireTask);
                     stateMachine.staticFireTask = NULL;
                 }
-
+                
             }else if(stateMachine.state == IDLE){
+                //resume suspended tasks
                 vTaskResume(stateMachine.uiTask);
                 vTaskResume(stateMachine.dataTask);
+
+                if(stateMachine.calibrationTask != NULL){
+                    if(eTaskGetState(stateMachine.calibrationTask) != eDeleted){
+                        vTaskDelete(stateMachine.calibrationTask);
+                    }
+                    stateMachine.calibrationTask = NULL;
+                }
                 
-                stateMsg = "State: IDLE"; 
+                stateMsg += "State: IDLE"; 
 
             }else if(stateMachine.state == CALIBRATION){
-                //xTaskCreatePinnedToCore(calibrationTask, "calibration task", 16384, )
+                vTaskDelay(10 / portTICK_PERIOD_MS);
+                vTaskSuspend(stateMachine.uiTask); //calibration task will handle ui
+                vTaskSuspend(stateMachine.dataTask); //calibration task need only data from load cell
+
+                xTaskCreatePinnedToCore(calibrationTask, "calibration task", 16384, NULL, 2, &stateMachine.calibrationTask, APP_CPU_NUM);
                 
                 stateMsg = "State: CALIBRATION";
+
             }else if(stateMachine.state == COUNTDOWN){
                 xTaskCreatePinnedToCore(staticFireTask, "static fire task", 16384, NULL, 3, &stateMachine.staticFireTask, APP_CPU_NUM);
-                //check that this task will work only one time
 
                 stateMsg = "State: COUNTDOWN";
 
             }else if(stateMachine.state == STATIC_FIRE){
                 stateMsg = "State: STATIC_FIRE";
                 
-            }else if(stateMachine.state == ABORT){
+            }else if(stateMachine.state == ABORT){  //stop static fire
                 if(stateMachine.staticFireTask != NULL){
                     vTaskDelete(stateMachine.staticFireTask);
                     stateMachine.staticFireTask = NULL;
                 }
+                //close valve or sth
+
                 stateMsg = "State: ABORT";
             }
-
+            
+            //critical section end
+            portEXIT_CRITICAL(&stateMachine.spinlock);
+            
+            //state info for user
             if(stateMachine.state != DISCONNECTED){
                 xQueueSend(stateMachine.btTxQueue, (void*)&stateMsg, 0);
             }
 
-            //critical section end
-            portEXIT_CRITICAL(&stateMachine.spinlock);
         }
         vTaskDelay(10 / portTICK_PERIOD_MS);
     }
@@ -283,11 +304,11 @@ void sdTask(void *arg){
     while(1){
         xQueueReceive(stateMachine.sdQueue, (void*)&data, portMAX_DELAY);
 
-        if(data.startsWith("LOG: ")){
+        if(data.startsWith("LOG: ")){ //write logs
             if(!sd.write(logPath, data)){
                 //error handling
             }
-        }else{
+        }else{ //write data
             if(!sd.write(dataPath, data)){
                 //error handling
             }
@@ -306,12 +327,14 @@ void staticFireTask(void *arg){
     uint8_t secondValveEnable = btUI.getValveState(SECOND_VALVE);
     TickType_t startTime;
     TickType_t stopTime;
+    TaskHandle_t firstValveTask = NULL;
+    TaskHandle_t secondValveTask = NULL;
     String msg;
 
     vTaskDelay(1000 / portTICK_PERIOD_MS);
 
     startTime = xTaskGetTickCount();
-    stopTime = (countDownTime + secondValveCloseTime) * 2 + startTime;
+    stopTime = (countDownTime + secondValveCloseTime + firstValveCloseTime) * 2 + startTime;
     countDownTime += startTime;
 
 
@@ -319,34 +342,65 @@ void staticFireTask(void *arg){
         int timeInSec = (countDownTime - (xTaskGetTickCount() * portTICK_PERIOD_MS)) / 1000;
         
         if((timeInSec > 10) && ((timeInSec % 5) == 0)){ //print every 5sec
+       
             msg = String(timeInSec);
             xQueueSend(stateMachine.btTxQueue, (void*)&msg, 0);
+        
         }else if(timeInSec <= 10){ //10, 9, 8 ...
+       
             msg = String(timeInSec);
             xQueueSend(stateMachine.btTxQueue, (void*)&msg, 0);    
+       
         }
-        /* not neccesery
-        if(stateMachine.state == ABORT){
-            vTaskDelete(NULL);
-        }
-        */
+       
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
 
-    msg = "static fire fruuuu";
-    xQueueSend(stateMachine.btTxQueue, (void*)&msg, 0);
-
+    stateMachine.changeState(STATIC_FIRE);
+    digitalWrite(IGNITER, HIGH);
+    //igniter low after 1 sec
+    /*
     while(stopTime > xTaskGetTickCount() * portTICK_PERIOD_MS){
-        vTaskDelay(100 / portTICK_PERIOD_MS);
-    }
+        if(firstValveEnable && (firstValveTask != NULL)){
+            if(firstValveCloseTime != 0){
+                //timer
+            }
+        }
 
-    msg = "usuwanie taska";
+
+        if(secondValveEnable && (secondValveTask != NULL){
+
+        })
+        
+        
+    
+        vTaskDelay(10 / portTICK_PERIOD_MS);
+    }
+    */
+    stateMachine.changeState(IDLE);
+    vTaskDelete(NULL);   
+}
+
+void calibrationTask(void *arg){
+    String msg;
+    /*
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
+
+    if(eTaskGetState(stateMachine.uiTask) == eSuspended){ 
+        msg = "zawieszony";
+    }else{
+        msg = "dziala";
+    }
+    
     xQueueSend(stateMachine.btTxQueue, (void*)&msg, 0);
 
-
-    stateMachine.state = IDLE;
-    xTaskNotifyGive(stateMachine.stateTask);
-
-
-    vTaskDelete(NULL);   
+    msg = "Start calibration";
+    xQueueSend(stateMachine.btTxQueue, (void*)&msg, 0);
+    
+    xQueueReceive(stateMachine.btRxQueue, (void*)&msg, portMAX_DELAY);
+    xQueueSend(stateMachine.btTxQueue, (void*)&msg, 0);
+    */
+    stateMachine.changeState(IDLE);
+    stateMachine.calibrationTask = NULL;
+    vTaskDelete(NULL);
 }

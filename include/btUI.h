@@ -39,7 +39,7 @@ class BluetoothUI{
     
     void println(const String & message);
     bool isConnected();
-    void printTimers();
+    String timersDescription();
     bool available();
     
     String readString();
