@@ -195,59 +195,65 @@ void stateTask(void *arg){
         if(ulTaskNotifyTake(pdTRUE, portMAX_DELAY) == pdTRUE){
             //critical section begin
             portENTER_CRITICAL(&stateMachine.spinlock);
-            
-            if(stateMachine.state == DISCONNECTED){
-                //suspend tasks
-                vTaskSuspend(stateMachine.uiTask);
-                vTaskSuspend(stateMachine.dataTask);
-                
-                //security check
-                if(stateMachine.staticFireTask != NULL){
-                    vTaskDelete(stateMachine.staticFireTask);
-                    stateMachine.staticFireTask = NULL;
-                }
-                
-            }else if(stateMachine.state == IDLE){
-                //resume suspended tasks
-                vTaskResume(stateMachine.uiTask);
-                vTaskResume(stateMachine.dataTask);
-
-                if(stateMachine.calibrationTask != NULL){
-                    if(eTaskGetState(stateMachine.calibrationTask) != eDeleted){
-                        vTaskDelete(stateMachine.calibrationTask);
+            switch(stateMachine.state){
+                case DISCONNECTED:
+                    vTaskSuspend(stateMachine.uiTask);
+                    vTaskSuspend(stateMachine.dataTask);
+                    
+                    //security check
+                    if(stateMachine.staticFireTask != NULL){
+                        vTaskDelete(stateMachine.staticFireTask);
+                        stateMachine.staticFireTask = NULL;
                     }
-                    stateMachine.calibrationTask = NULL;
-                }
+                    break;
+
+                case IDLE:
+                    //resume suspended tasks
+                    vTaskResume(stateMachine.uiTask);
+                    vTaskResume(stateMachine.dataTask);
+
+                    if(stateMachine.calibrationTask != NULL){
+                        if(eTaskGetState(stateMachine.calibrationTask) != eDeleted){
+                            vTaskDelete(stateMachine.calibrationTask);
+                        }
+                        stateMachine.calibrationTask = NULL;
+                    }
+                    
+                    stateMsg += "State: IDLE"; 
+                    break;
+
+                case CALIBRATION:
+                    vTaskDelay(10 / portTICK_PERIOD_MS);
+                    vTaskSuspend(stateMachine.uiTask); //calibration task will handle ui
+                    vTaskSuspend(stateMachine.dataTask); //calibration task need only data from load cell
+
+                    xTaskCreatePinnedToCore(calibrationTask, "calibration task", 16384, NULL, 2, &stateMachine.calibrationTask, APP_CPU_NUM);
+                    
+                    stateMsg = "State: CALIBRATION";
+                    break;
                 
-                stateMsg += "State: IDLE"; 
+                case COUNTDOWN:
+                    xTaskCreatePinnedToCore(staticFireTask, "static fire task", 16384, NULL, 3, &stateMachine.staticFireTask, APP_CPU_NUM);
 
-            }else if(stateMachine.state == CALIBRATION){
-                vTaskDelay(10 / portTICK_PERIOD_MS);
-                vTaskSuspend(stateMachine.uiTask); //calibration task will handle ui
-                vTaskSuspend(stateMachine.dataTask); //calibration task need only data from load cell
+                    stateMsg = "State: COUNTDOWN";
+                    break;
 
-                xTaskCreatePinnedToCore(calibrationTask, "calibration task", 16384, NULL, 2, &stateMachine.calibrationTask, APP_CPU_NUM);
-                
-                stateMsg = "State: CALIBRATION";
+                case STATIC_FIRE:
+                    stateMsg = "State: STATIC_FIRE";
+                    break;
+                    
+                case ABORT:
+                    if(stateMachine.staticFireTask != NULL){
+                        vTaskDelete(stateMachine.staticFireTask);
+                        stateMachine.staticFireTask = NULL;
+                    }
+                    //close valve or sth
 
-            }else if(stateMachine.state == COUNTDOWN){
-                xTaskCreatePinnedToCore(staticFireTask, "static fire task", 16384, NULL, 3, &stateMachine.staticFireTask, APP_CPU_NUM);
-
-                stateMsg = "State: COUNTDOWN";
-
-            }else if(stateMachine.state == STATIC_FIRE){
-                stateMsg = "State: STATIC_FIRE";
-                
-            }else if(stateMachine.state == ABORT){  //stop static fire
-                if(stateMachine.staticFireTask != NULL){
-                    vTaskDelete(stateMachine.staticFireTask);
-                    stateMachine.staticFireTask = NULL;
-                }
-                //close valve or sth
-
-                stateMsg = "State: ABORT";
+                    stateMsg = "State: ABORT";
+                    
+                    break;
             }
-            
+    
             //critical section end
             portEXIT_CRITICAL(&stateMachine.spinlock);
             
