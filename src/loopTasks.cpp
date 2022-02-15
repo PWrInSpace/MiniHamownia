@@ -72,7 +72,7 @@ void uiTask(void *arg){
     String command;
     uint32_t time;
     String btTx;
-    TickType_t askTime = xTaskGetTickCount() * portTICK_PERIOD_MS; 
+    TickType_t askTime = 0; 
     TickType_t askTimeOut = 30000;
 
     while(1){
@@ -191,12 +191,16 @@ void uiTask(void *arg){
                     
                 //
                 }else if(command == "SFY;"){
-                    if((xTaskGetTickCount() * portTICK_PERIOD_MS) - askTime < askTimeOut){
+                    if(askTime == 0){
+                        btTx = "Unknown command";
+                    }else if((xTaskGetTickCount() * portTICK_PERIOD_MS) - askTime < askTimeOut){
                         btUI.saveToFlash();
                         btTx = "create static fire task";
+                        askTime = 0;
                         sm.changeState(COUNTDOWN);
                     }else{
                         btTx = "Static fire ask time out!";
+                        askTime = 0;
                     }
                 
                 //turn off esp 
