@@ -15,6 +15,7 @@
 #define DCIN2 21
 #define LIM_SW_1 12
 #define LIM_SW_2 13
+#define DC_PWM1 0
 
 // PRESSURE SENS
 #define PRESS_SENS 36

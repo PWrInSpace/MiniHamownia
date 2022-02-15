@@ -22,9 +22,9 @@ class DCValve{
     void valveMove(const uint8_t & limitSwitchPIN, const uint8_t & highValvePIN, const uint8_t & valveSpeed = 255);
     void setTimeout(uint16_t newTimeout);
     //Tasks
-    void valveOpen(void *arg);  
-    void valveClose(void *arg);
-    void valveTimeOpen(void *arg);
+    void open(void *arg);  
+    void close(void *arg);
+    void timeOpen(void *arg);
 };
 
 #endif

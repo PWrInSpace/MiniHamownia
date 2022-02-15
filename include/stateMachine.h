@@ -2,6 +2,7 @@
 #define STATE_MACHINE_HH
 
 #include "FreeRTOS.h"
+#include "timer.h"
 
 #define Rx_QUEUE_LENGTH 5
 #define Tx_QUEUE_LENGTH 10
@@ -18,6 +19,7 @@ enum State{
 
 typedef struct StateMachine{
     State state = DISCONNECTED;
+    Timer timer;
 
     TaskHandle_t btRxTask = NULL;
     TaskHandle_t btTxTask = NULL;

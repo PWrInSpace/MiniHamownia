@@ -41,7 +41,7 @@ void DCValve::init(){
 
 void DCValve::valveMove(const uint8_t & limitSwitchPIN, const uint8_t & highValvePIN, const uint8_t & valveSpeed){
     if(!digitalRead(limitSwitchPIN)){ // gdy krancówka jest zwarta
-        BTSerial.println("Na krancowce: " + String(limitSwitchPIN));
+        //BTSerial.println("Na krancowce: " + String(limitSwitchPIN));
         return;
     }
 
@@ -57,31 +57,30 @@ void DCValve::valveMove(const uint8_t & limitSwitchPIN, const uint8_t & highValv
         timeoutValve--;
     }
 
-    //wylaczenie silnika
+    //turn off dc
     digitalWrite(highValvePIN, LOW);
     ledcWrite(pwmChannel, 0);
 }
 
 
-void DCValve::valveOpen(void *arg){
+void DCValve::open(void *arg){
     valveMove(limitSwitchPin2, motorPin1);
     
-    //vTaskDelete(NULL);
-    BTSerial.println("Koniec taska");
+    vTaskDelete(NULL);
 }
 
 
-void DCValve::valveClose(void *arg){
+void DCValve::close(void *arg){
     valveMove(limitSwitchPin1, motorPin2);
     
-    //vTaskDelete(NULL);
+    vTaskDelete(NULL);
 }
 
 
-void DCValve::valveTimeOpen(void *arg){
+void DCValve::timeOpen(void *arg){
 
-    uint16_t openTime = 500;
-    uint16_t valveTimer;
+    uint32_t openTime = *(uint32_t*)arg;
+    uint32_t valveTimer;
 
     valveMove(limitSwitchPin2, motorPin1);
 
