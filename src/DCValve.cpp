@@ -41,7 +41,7 @@ void DCValve::init(){
 
 void DCValve::valveMove(const uint8_t & limitSwitchPIN, const uint8_t & highValvePIN, const uint8_t & valveSpeed){
     if(!digitalRead(limitSwitchPIN)){ // gdy krancówka jest zwarta
-        BTSerial.println("Na krancowce: " + String(limitSwitchPIN));
+        //BTSerial.println("Na krancowce: " + String(limitSwitchPIN));
         return;
     }
 
@@ -57,31 +57,26 @@ void DCValve::valveMove(const uint8_t & limitSwitchPIN, const uint8_t & highValv
         timeoutValve--;
     }
 
-    //wylaczenie silnika
+    //turn off dc
     digitalWrite(highValvePIN, LOW);
     ledcWrite(pwmChannel, 0);
 }
 
 
-void DCValve::valveOpen(void *arg){
+void DCValve::open(){
     valveMove(limitSwitchPin2, motorPin1);
-    
-    //vTaskDelete(NULL);
-    BTSerial.println("Koniec taska");
 }
 
 
-void DCValve::valveClose(void *arg){
+void DCValve::close(){
     valveMove(limitSwitchPin1, motorPin2);
-    
-    //vTaskDelete(NULL);
 }
 
 
-void DCValve::valveTimeOpen(void *arg){
+void DCValve::timeOpen(uint32_t time){
 
-    uint16_t openTime = 500;
-    uint16_t valveTimer;
+    uint32_t openTime = time;
+    uint32_t valveTimer;
 
     valveMove(limitSwitchPin2, motorPin1);
 
@@ -93,3 +88,41 @@ void DCValve::valveTimeOpen(void *arg){
     valveMove(limitSwitchPin2, motorPin2);
     vTaskDelete(NULL);
 }
+
+#ifdef MAIN_FREERTOS_H_
+
+DCValve firstValve(DCIN1, DCIN2, DC_PWM1, LIM_SW_1, LIM_SW_2);
+DCValve secondValve(DCIN1, DCIN2, DC_PWM1, LIM_SW_1, LIM_SW_2);
+
+
+void openFirstValve(void *arg){
+    firstValve.open();
+    vTaskDelete(NULL);
+}
+
+void openSecondValve(void *arg){
+    secondValve.open();
+    vTaskDelete(NULL);
+}
+
+void closeFirstValve(void *arg){
+    firstValve.close();
+    vTaskDelete(NULL);
+}
+
+void closeSecondValve(void *arg){
+    secondValve.close();
+    vTaskDelete(NULL);
+}
+
+void timeOpenFirstValve(void *arg){
+    firstValve.timeOpen(*(uint32_t*)arg);
+    vTaskDelete(NULL);
+}
+
+void timeOpenSecondValve(void *arg){
+    secondValve.timeOpen(*(uint32_t*)arg);
+    vTaskDelete(NULL);
+}
+
+#endif 
