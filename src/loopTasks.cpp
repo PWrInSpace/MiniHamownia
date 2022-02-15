@@ -171,11 +171,11 @@ void uiTask(void *arg){
                 //enable/disable data frame to user
                 }else if(command == "SDF;"){
                     btTx = "Data frame "; //enable / disable
-                    //set flag
+                    //set flag btTxFlag
 
                 //start static fire task
                 }else if(command == "SFS;"){
-                    //add Igniter continuity check
+                    //Igniter continuity check
                     //if(digitalRead(CONTINUITY) == HIGH){
                         if(btUI.checkTimers()){//check timers
                             askTime = xTaskGetTickCount() * portTICK_PERIOD_MS; //start timer
@@ -233,6 +233,7 @@ void stateTask(void *arg){
             portENTER_CRITICAL(&sm.spinlock);
             switch(sm.state){
                 case DISCONNECTED:
+                    sm.timer.setDefault();
                     vTaskSuspend(sm.uiTask);
                     //vTaskSuspend(sm.dataTask);
                     
@@ -241,10 +242,12 @@ void stateTask(void *arg){
                         vTaskDelete(sm.staticFireTask);
                         sm.staticFireTask = NULL;
                     }
+
                     break;
 
                 case IDLE:
                     //resume suspended tasks
+                    sm.timer.setDefault();
                     vTaskResume(sm.uiTask);
                     vTaskResume(sm.dataTask);
 
@@ -298,7 +301,8 @@ void stateTask(void *arg){
                         sm.staticFireTask = NULL;
                     }
                     //close valve or sth
-
+                    digitalWrite(IGNITER, LOW);
+                    sm.timer.setDefault();
                     stateMsg = "State: ABORT";
                     break;
             }
@@ -430,12 +434,14 @@ void staticFireTask(void *arg){
         //first valve
         if(firstValveEnable && (firstValveTask == NULL)){
             if((millis() - testStartTime) > (firstValveOpenTime)){
+                //time open
                 if(firstValveCloseTime != 0){
                     valveOpenTime = firstValveCloseTime - firstValveOpenTime;
                     xTaskCreatePinnedToCore(timeOpenFirstValve, "Valve 1", 4096, (void*)&valveOpenTime, 2, &firstValveTask, APP_CPU_NUM);
                     
                     msg = "First valve open for: " + String(valveOpenTime);
                     xQueueSend(sm.btTxQueue, (void*)&msg, 0);
+                //open
                 }else{
                     msg = "First valve open";
                     xQueueSend(sm.btTxQueue, (void*)&msg, 0);
@@ -447,11 +453,13 @@ void staticFireTask(void *arg){
         //second valve
         if(secondValveEnable && (secondValveTask == NULL)){
             if((millis() - testStartTime) > (secondValveOpenTime)){
+                //time open
                 if(secondValveCloseTime != 0){
                     valveOpenTime = secondValveCloseTime - secondValveOpenTime;
                     msg = "Second valve open for: " + String(valveOpenTime);
                     xQueueSend(sm.btTxQueue, (void*)&msg, 0);
                     xTaskCreatePinnedToCore(timeOpenSecondValve, "Valve 1", 4096, (void*)&valveOpenTime, 2, &secondValveTask, APP_CPU_NUM);
+                //open
                 }else{
                     msg = "Second valve open";
                     xQueueSend(sm.btTxQueue, (void*)&msg, 0);

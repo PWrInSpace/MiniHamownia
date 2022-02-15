@@ -24,8 +24,6 @@ void setup()
     }
     
     Serial.println("Połączono");
-    btUI.println("MiniHamownia v1.0 aka Rozkurwiacz");
-    btUI.println(btUI.timersDescription());
 
     firstValve.init();
     secondValve.init();
@@ -46,6 +44,24 @@ void setup()
 
     vTaskDelay(1000 / portTICK_PERIOD_MS); 
 
+    if(sm.btRxTask == NULL || sm.btTxTask == NULL || sm.uiTask == NULL){
+        btUI.println("Pro_cpu task error");
+        ESP.restart();
+    }
+
+    if(sm.stateTask == NULL || sm.dataTask == NULL || sm.sdTask == NULL){
+        btUI.println("Pro_cpu task error");
+        ESP.restart();
+    }
+
+    if(sm.btRxQueue == NULL || sm.btTxQueue == NULL || sm.sdQueue == NULL){
+        btUI.println("Queue create error");
+        ESP.restart();
+    }
+
+    //welcome screen
+    btUI.println("MiniHamownia v1.0 aka Rozkurwiacz");
+    btUI.println(btUI.timersDescription());
     sm.changeState(IDLE);
 
     vTaskDelete(NULL);
