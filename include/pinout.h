@@ -27,7 +27,7 @@
 #define MOSI 27
 #define MISO 25
 #define SCK 26
-#define CS 33
+#define SD_CS 33
 
 // VALVE STATES
 #define VALVE_OPEN 2

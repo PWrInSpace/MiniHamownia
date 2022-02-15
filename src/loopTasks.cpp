@@ -27,6 +27,7 @@ void btReceiveTask(void* arg){
             }    
         }else{
             if(sm.state != DISCONNECTED && sm.state < COUNTDOWN){
+                sm.changeState(DISCONNECTED);
                 //disconnected sound
                 
                 while(!btUI.isConnected()){
@@ -42,7 +43,7 @@ void btReceiveTask(void* arg){
             }
         }
         
-        msg.clear();
+        //msg.clear();
 
         vTaskDelay(10 / portTICK_PERIOD_MS);
     }
@@ -69,7 +70,7 @@ void uiTask(void *arg){
     String btMsg;
     String prefix = "MH;";  //prefix
     String command;
-    String time;
+    uint32_t time;
     String btTx;
     TickType_t askTime = xTaskGetTickCount() * portTICK_PERIOD_MS; 
     TickType_t askTimeOut = 30000;
@@ -84,25 +85,25 @@ void uiTask(void *arg){
             }else if(checkCommand(btMsg, prefix, ';', 2) && (sm.state == IDLE)){
                 btMsg.remove(0, prefix.length()); //remove MH; prefix
                 command = btMsg.substring(0, 4); //get command
-                time = btMsg.substring(4);  //get timer
+                time = btMsg.substring(4).toInt();  //get timer ms
 
                 //valve open timer
                 if(command == "MO1;" || command == "MO2;"){
                     if(command[2] == '1'){
-                        //xTaskCreatePinnedToCore(firstValve.open, "First Val open", 2048, NULL, 2, NULL, APP_CPU_NUM);
+                        xTaskCreatePinnedToCore(openFirstValve, "First Val open", 2048, NULL, 2, NULL, APP_CPU_NUM);
                         btTx = "First valve open";
                     }else if(command[2] == '2'){
-                        //xTaskCreatePinnedToCore(DCValve::open, "second Val open", 2048, NULL, 2, NULL, APP_CPU_NUM);
+                        xTaskCreatePinnedToCore(openSecondValve, "second Val open", 2048, NULL, 2, NULL, APP_CPU_NUM);
                         btTx = "Second valve open";
                     }else{
                         btTx = "Unknown valve number";
                     }
                 }else if(command == "MC1;" || command == "MC2;"){
                     if(command[2] == '1'){
-                        //xTaskCreatePinnedToCore(firstValve.close, "First Val close", 2048, NULL, 2, NULL, APP_CPU_NUM);
+                        xTaskCreatePinnedToCore(closeFirstValve, "First Val close", 2048, NULL, 2, NULL, APP_CPU_NUM);
                         btTx = "First valve closed";
                     }else if(command[2] == '2'){
-                        //xTaskCreatePinnedToCore(secondValve.close, "second Val close", 2048, NULL, 2, NULL, APP_CPU_NUM);
+                        xTaskCreatePinnedToCore(closeSecondValve, "second Val close", 2048, NULL, 2, NULL, APP_CPU_NUM);
                         btTx = "Second valve closed";
                     }else{
                         btTx = "Unknown valve number";
@@ -110,17 +111,17 @@ void uiTask(void *arg){
                 
                 }else if(command == "TO1;" || command == "TO2;"){
                     if(command[2] == '1'){
-                        //xTaskCreatePinnedToCore(firstValve.timeOpen, "First time open", 2048, (void*)&time.toInt(), 2, NULL, APP_CPU_NUM);
-                        btTx = "First valve open for " + String(time.toInt());
+                        //xTaskCreatePinnedToCore(firstValve.timeOpen, "First time open", 2048, (void*)&time.toInt(), 2, NULL, APP_CPU_NUM); //i think it won't work xDD
+                        btTx = "First valve open for " + String(time);
                     }else if(command[2] == '2'){
                         //xTaskCreatePinnedToCore(secondValve.timeOpen, "Second Val time open", 2048, (void*)&time.toInt(), 2, NULL, APP_CPU_NUM);
-                        btTx = "First valve open for " + String(time.toInt());
+                        btTx = "First valve open for " + String(time);
                     }else{
                         btTx = "Unknown valve number";
                     }
 
                 }else if(command == "VO1;" || command == "VO2;"){
-                    if(btUI.setValveOpenTimer(time.toInt(), command[2] - 48)){
+                    if(btUI.setValveOpenTimer(time, command[2] - 48)){
                         btTx = "Valve " + String(command[2] - 48) + " New open time: " + String(btUI.getValveOpenTimer(command[2] - 48));
                     }else{
                         btTx = "Failed to save";    
@@ -128,7 +129,7 @@ void uiTask(void *arg){
 
                 //valve close timer    
                 }else if(command == "VC1;" || command == "VC2;"){
-                    if(btUI.setValveCloseTimer(time.toInt(), command[2] - 48)){
+                    if(btUI.setValveCloseTimer(time, command[2] - 48)){
                         btTx = "Valve " + String(command[2] - 48) + " New close time: " + String(btUI.getValveCloseTimer(command[2] - 48));
                     }else{
                         btTx = "Failed to save";
@@ -136,7 +137,7 @@ void uiTask(void *arg){
 
                 //valve enable
                 }else if(command == "VE1;" || command == "VE2;"){
-                    if(btUI.setValveState(time.toInt(), command[2] - 48)){
+                    if(btUI.setValveState(time, command[2] - 48)){
                         btTx = "Valve " + String(command[2] - 48) + (btUI.getValveState(command[2] - 48) > 0 ? " enable" : " disable");
                     }else{
                         btTx = "Failed to save";
@@ -144,7 +145,7 @@ void uiTask(void *arg){
 
                 //count down timer
                 }else if(command == "CDT;"){
-                    if(btUI.setCountDownTime((uint16_t)time.toInt())){
+                    if(btUI.setCountDownTime(time)){
                         btTx = "New countdown time:  " + String(btUI.getCountDownTime());
                     }else{
                         btTx = "Failed to save";
@@ -191,6 +192,7 @@ void uiTask(void *arg){
                 //
                 }else if(command == "SFY;"){
                     if((xTaskGetTickCount() * portTICK_PERIOD_MS) - askTime < askTimeOut){
+                        btUI.saveToFlash();
                         btTx = "create static fire task";
                         sm.changeState(COUNTDOWN);
                     }else{
@@ -232,7 +234,7 @@ void stateTask(void *arg){
             switch(sm.state){
                 case DISCONNECTED:
                     vTaskSuspend(sm.uiTask);
-                    vTaskSuspend(sm.dataTask);
+                    //vTaskSuspend(sm.dataTask);
                     
                     //security check
                     if(sm.staticFireTask != NULL){
@@ -261,15 +263,29 @@ void stateTask(void *arg){
                     vTaskSuspend(sm.uiTask); //calibration task will handle ui
                     vTaskSuspend(sm.dataTask); //calibration task need only data from load cell
 
-                    xTaskCreatePinnedToCore(calibrationTask, "calibration task", 16384, NULL, 2, &sm.calibrationTask, APP_CPU_NUM);
+                    xTaskCreatePinnedToCore(calibrationTask, "calibration task", 4096, NULL, 2, &sm.calibrationTask, APP_CPU_NUM);
                     
-                    stateMsg = "State: CALIBRATION";
+                    if(sm.calibrationTask == NULL){
+                        stateMsg = "Beep boop error, calibrationTask not created";
+                        vTaskResume(sm.uiTask);
+                        vTaskResume(sm.dataTask);
+                        sm.changeState(IDLE);
+                    }else{
+                        stateMsg = "State: CALIBRATION";
+                    }
+
                     break;
                 
                 case COUNTDOWN:
-                    xTaskCreatePinnedToCore(staticFireTask, "static fire task", 16384, NULL, 3, &sm.staticFireTask, APP_CPU_NUM);
+                    xTaskCreatePinnedToCore(staticFireTask, "static fire task", 8192, NULL, 3, &sm.staticFireTask, APP_CPU_NUM);
 
-                    stateMsg = "State: COUNTDOWN";
+                    if(sm.staticFireTask == NULL){
+                        stateMsg = "Beep boop error, staticFireTask not created";
+                        sm.changeState(IDLE);
+                    }else{
+                        stateMsg = "State: COUNTDOWN";
+                    }
+
                     break;
 
                 case STATIC_FIRE:
@@ -312,7 +328,7 @@ void dataTask(void *arg){
         ///..... 
 
         /*
-        if(tylko podczas testu){
+        if(sm.timer.isEnable()){
             xQueueSend(sm.sdQueue, (void*)&dataFrame, 10);
         }
         */
@@ -326,19 +342,17 @@ void dataTask(void *arg){
 }
 
 void sdTask(void *arg){
-    SDCard sd(0, 0, 0, 0); //mmiso mosi a
+    SDCard sd(MOSI, MISO, SCK, SD_CS); //mmiso mosi a
     String data;
     String logPath = "/logs.txt";
     String dataPath = "/data.txt";
 
     vTaskDelay(100 / portTICK_RATE_MS);
     /*
-    if(!sd.init()){
+    while(!sd.init()){
         data = "Sd init error!";
-        while(1){
-            xQueueSend(sm.btTxQueue, (void*)&data, 10);
-            vTaskDelay(1000 / portTICK_PERIOD_MS);
-        }
+        xQueueSend(sm.btTxQueue, (void*)&data, 10);
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
     */
 
@@ -377,8 +391,8 @@ void staticFireTask(void *arg){
     vTaskDelay(1000 / portTICK_PERIOD_MS);
 
     //set timers
-    testStartTime = millis() + countDownTime;
-    testStopTime = (firstValveCloseTime + secondValveCloseTime + 30000) + millis();
+    testStartTime = millis() + countDownTime; //T0
+    testStopTime = (firstValveCloseTime + secondValveCloseTime + 30000) + testStartTime;
     sm.timer.setTimer(testStartTime);
 
 
@@ -400,6 +414,10 @@ void staticFireTask(void *arg){
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
 
+    if(sm.state == ABORT){
+        vTaskDelete(NULL);
+    }
+
     //ignition
     sm.changeState(STATIC_FIRE);
     igniterState = HIGH;
@@ -414,15 +432,14 @@ void staticFireTask(void *arg){
             if((millis() - testStartTime) > (firstValveOpenTime)){
                 if(firstValveCloseTime != 0){
                     valveOpenTime = firstValveCloseTime - firstValveOpenTime;
+                    xTaskCreatePinnedToCore(timeOpenFirstValve, "Valve 1", 4096, (void*)&valveOpenTime, 2, &firstValveTask, APP_CPU_NUM);
+                    
                     msg = "First valve open for: " + String(valveOpenTime);
                     xQueueSend(sm.btTxQueue, (void*)&msg, 0);
-                    firstValveTask = (void*)0x01; //for tests
-                    //xTaskCreatePinnedToCore(firstValve.timeOpen, "Valve 1", 4096, (void*)&time, 2, &firstValveTask, APP_CPU_NUM);
                 }else{
                     msg = "First valve open";
                     xQueueSend(sm.btTxQueue, (void*)&msg, 0);
-                    firstValveTask = (void*)0x01; //for tests
-                    //xTaskCreatePinnedToCore(DCValve::open, "Valve 1 open", 4096, NULL, 2, &firstValveTask, APP_CPU_NUM);
+                    xTaskCreatePinnedToCore(openFirstValve, "Valve 1 open", 4096, NULL, 2, NULL, APP_CPU_NUM);
                 }
             }
         }
@@ -434,13 +451,11 @@ void staticFireTask(void *arg){
                     valveOpenTime = secondValveCloseTime - secondValveOpenTime;
                     msg = "Second valve open for: " + String(valveOpenTime);
                     xQueueSend(sm.btTxQueue, (void*)&msg, 0);
-                    secondValveTask = (void*)0x02;
-                    //xTaskCreatePinnedToCore(secondValve.timeOpen, "Valve 1", 4096, (void*)&time, 2, &secondValveTask, APP_CPU_NUM);
+                    xTaskCreatePinnedToCore(timeOpenSecondValve, "Valve 1", 4096, (void*)&valveOpenTime, 2, &secondValveTask, APP_CPU_NUM);
                 }else{
                     msg = "Second valve open";
                     xQueueSend(sm.btTxQueue, (void*)&msg, 0);
-                    secondValveTask = (void*)0x02;
-                    //xTaskCreatePinnedToCore(secondValve.open, "Valve 1 open", 4096, NULL, 2, &secondValveTask, APP_CPU_NUM);
+                    xTaskCreatePinnedToCore(openSecondValve, "Valve 1 open", 4096, NULL, 2, NULL, APP_CPU_NUM);
                 }
             }
         }
@@ -480,6 +495,8 @@ void calibrationTask(void *arg){
     xQueueReceive(sm.btRxQueue, (void*)&msg, portMAX_DELAY);
     xQueueSend(sm.btTxQueue, (void*)&msg, 0);
     */
+
+    //exit
     sm.changeState(IDLE);
     sm.calibrationTask = NULL;
     vTaskDelete(NULL);

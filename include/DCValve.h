@@ -1,9 +1,12 @@
 #ifndef DC_VALVE_HH
 #define DC_VALVE_HH
 
-#include <stdint.h>
-#include <Arduino.h>
 #include <FreeRTOS.h>
+#include <Arduino.h>
+#include <stdint.h>
+#include "pinout.h"
+
+//DCValve secondValve(DCIN1, DCIN2, DC_PWM1, LIM_SW_1, LIM_SW_2);
 
 class DCValve{
     const uint8_t motorPin1;
@@ -22,9 +25,22 @@ class DCValve{
     void valveMove(const uint8_t & limitSwitchPIN, const uint8_t & highValvePIN, const uint8_t & valveSpeed = 255);
     void setTimeout(uint16_t newTimeout);
     //Tasks
-    void open(void *arg);  
-    void close(void *arg);
-    void timeOpen(void *arg);
+    void open();  
+    void close();
+    void timeOpen(uint32_t time);
 };
+
+#ifdef MAIN_FREERTOS_H_
+
+void openFirstValve(void *arg);
+void openSecondValve(void *arg);
+void closeFirstValve(void *arg);
+void closeSecondValve(void *arg);
+void timeOpenFirstValve(void  *arg);
+void timeOpenSecondValve(void  *arg);
+
+#endif
+
+
 
 #endif
