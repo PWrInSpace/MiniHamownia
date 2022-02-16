@@ -16,7 +16,6 @@
 * 
 * SOFTWARE BTSerial
 * 
-* 
 * 19 - IGNITER
 * 34 - IGNITER CONTINUITY 
 * 
@@ -35,10 +34,11 @@
 #include "SDcard.h"
 #include "BluetoothSerial.h"
 #include "DCValve.h"
+
 //#include <SoftwareSerial.h>
 
 #define DOUT 15 //pin 3 Arduino i wyjście DAT czujnika
-#define CLK 26  //pin 2 Arduino i wyjście CLK czujnika
+#define CLK 5   //pin 2 Arduino i wyjście CLK czujnika
 #define ERROR_LED 2
 #define STATUS_LED 2
 
@@ -50,10 +50,10 @@
 #define DCIN1 22
 #define DCIN2 21
 #define LIM_SW_1 12
-#define LIM_SW_2 13
+#define LIM_SW_2 13 // close
 
 // PRESSURE SENS
-#define PRESS_SENS 36
+#define PRESS_SENS 39
 
 // mySD
 #define MOSI 27
@@ -66,9 +66,15 @@
 #define VALVE_BETWEEN 1
 #define VALVE_CLOSE 0
 
+// thermocouple
+#define CS_THERMO 4
+
 BluetoothSerial BTSerial;
 DCValve Valve(DCIN1, DCIN2, 69, LIM_SW_2, LIM_SW_1);
-HX711_ADC LoadCell(DOUT, CLK);
+HX711_ADC LoadCell(15, 5);
+
+//MAX6675 thermocouple1(23, CS_THERMO, 18);
+
 SDCard sdCard(27, 25, 26, 33);
 //SoftwareSerial myserial(5, 6);  //RX TX
 
@@ -77,18 +83,20 @@ String tab;
 String wartosc;
 
 bool start = false;
-char x = '0';             //znak wczytany z terminala - do ruszenia zapisu na mySD
+char x = '0';       //znak wczytany z terminala - do ruszenia zapisu na mySD
 float data;         //Dane z belki
 String data_string; //String przechowujący jeden rzad danych
 String file_name;   //nazwa pliku
 
 uint32_t sd_time = 0; //Czas dla zapisu na mySD
 
-float pressureConstant = 1.0;
+float pressureConstant = 45.0 / 560.0;
+
+// thernmi
 
 //Belka
 bool _tare = true;
-const float calibration_factor = 605.88; //Odczytana wartość z programu kalibracyjnego
+const float calibration_factor = 667.11; //Odczytana wartość z programu kalibracyjnego
 unsigned long stabilizingTime = 2000;    //opóźnienie uruchomienia belki
 int iter = 0;
 bool igniterBool = false;
@@ -98,6 +106,8 @@ bool valveCloseBool = false;
 uint32_t igniterDelay = 10000;
 uint32_t valveOpenDelay = igniterDelay + 10000;
 uint32_t valveCloseDelay = valveOpenDelay + 2300;
+
+double temp;
 
 uint8_t valveState(uint8_t limit_sw1, uint8_t limit_sw2)
 {
@@ -124,13 +134,7 @@ void setup()
   pinMode(STATUS_LED, OUTPUT); //Status error
   digitalWrite(STATUS_LED, LOW);
 
-  // DC motors
-  pinMode(LIM_SW_1, INPUT);
-  pinMode(LIM_SW_2, INPUT);
-
-  pinMode(DCIN1, OUTPUT);
-  pinMode(DCIN2, OUTPUT);
-
+  // DC motors2000
   // igniter
   pinMode(CONTINUITY, INPUT);
   pinMode(IGNITER, OUTPUT);
@@ -143,7 +147,10 @@ void setup()
   randomSeed(analogRead(A0));
   //valveCloseBool = true;
 
-  if (LoadCell.getTareTimeoutFlag())
+  LoadCell.begin();
+  LoadCell.start(stabilizingTime, _tare);
+
+  if (0)//LoadCell.getTareTimeoutFlag())
   { //sprawdzenie czy jakieś dane przychodzą z belki
     BTSerial.println("Brak podlaczonej belki\n");
     while (true)
@@ -157,22 +164,40 @@ void setup()
   LoadCell.setSamplesInUse(1);
 
   //Inicjalizacja karty mySD
-  
-  if(!sdCard.init()){
+  /*
+  if (thermocouple1.readCelsius() == NAN)
+  {
     digitalWrite(ERROR_LED, HIGH);
-    while(true){
+    BTSerial.println("oh no, no thermocouple 1 attached");
+    while (true)
+    {
+      delay(100);
+    } //nic nie rób!!
+  }
+  */
+  if (!sdCard.init())
+  {
+    digitalWrite(ERROR_LED, HIGH);
+    while (true)
+    {
       BTSerial.println("SD error");
       delay(500);
     }
   }
   Valve.valveClose((void *)'c');
+
+  //thermocouple1.begin(23, CS_THERMO, 2);
 }
 
 void loop()
 {
-  
+
   if (analogRead(CONTINUITY) > 2000)
+  {
     digitalWrite(STATUS_LED, HIGH);
+    BTSerial.println("Brak ciaglosci zapalnika!\n");
+    while(1){delay(500);};
+  }
   else
     digitalWrite(STATUS_LED, LOW);
 
@@ -189,7 +214,7 @@ void loop()
     }
     else if (x == '1')
     {
-      if (analogRead(CONTINUITY) < 2000)
+      if (analogRead(CONTINUITY) < 1000)
       {
         while (true)
         {
@@ -202,23 +227,21 @@ void loop()
       digitalWrite(STATUS_LED, start);
       sd_time = millis();
       x = 0;
+      file_name = "/test" + String(random(1000)) + ".txt";
+      sdCard.write(file_name, "Time; Pressure; Valve; Igniter_State; Continuity; Force; \n");
     }
   }
 
   data_string += String(millis() - sd_time) + "; ";
 
   //odczyt danych
-  if (LoadCell.update())
-  {
-    data = LoadCell.getData(); //* 9.81;
-    //if(data < 0.5) data = 0;
-    //data = data * 9.81;
-    // save force
-    data_string += String(data) + "; ";
-  }
+
+  //temp = thermocouple1.readCelsius();
+  //data_string += String(temp) + "; ";
 
   // save pressure
   data_string += String(analogRead(PRESS_SENS) * pressureConstant) + "; ";
+  //data_string += String(analogRead(CONTINUITY) * pressureConstant) + "; ";
 
   if (start)
   {
@@ -248,14 +271,23 @@ void loop()
     }
   }
   data_string += String(valveState(LIM_SW_1, LIM_SW_2)) + "; " + String(igniterBool) + "; ";
-  
-  if(start){
-    sdCard.write("/teeeest.txt", data_string + "\n");
-  }       
 
-  if ((iter++) == 100){
-    iter = 0;
+  data_string += String(analogRead(CONTINUITY)) + "; ";
+
+  if (LoadCell.update())
+  {
+    data = LoadCell.getData(); //* 9.81;
+    //if(data < 0.5) data = 0;
+    //data = data * 9.81;
+    // save force
+    data_string += String(data) + "; ";
     BTSerial.println(data_string); //wysyła dane po uarcie
   }
-  
+  delay(100);
+  if (start)
+  {
+    sdCard.write(file_name, data_string + "\n");
+  }
+  //BTSerial.println(data_string); //wysyła dane po uarcie
+  //Serial.println(data_string);
 }
