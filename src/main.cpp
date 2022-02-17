@@ -15,7 +15,10 @@ void setup()
 {
     Serial.begin(115200);  //debug only
     vTaskDelay(1000 / portTICK_PERIOD_MS);
-    //pinMode(2, OUTPUT);
+    pinMode(2, OUTPUT); //debug led
+    digitalWrite(2, HIGH);
+    pinMode(IGNITER, OUTPUT);
+    digitalWrite(IGNITER, LOW);
     
     btUI.begin();
     while(!btUI.isConnected()){
@@ -27,6 +30,8 @@ void setup()
 
     firstValve.init();
     secondValve.init();
+
+    sm.spiMutex = xSemaphoreCreateMutex();
 
     sm.btRxQueue = xQueueCreate(Rx_QUEUE_LENGTH, sizeof(String));
     sm.btTxQueue = xQueueCreate(Tx_QUEUE_LENGTH, sizeof(String));

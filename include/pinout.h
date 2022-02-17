@@ -11,10 +11,10 @@
 #define IGNITER 19
 
 // DC motors
-#define DCIN1 22
-#define DCIN2 21
-#define LIM_SW_1 12
-#define LIM_SW_2 13
+#define DCIN1 21
+#define DCIN2 22
+#define LIM_SW_1 13
+#define LIM_SW_2 12
 #define DC_PWM1 0
 
 // PRESSURE SENS

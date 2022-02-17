@@ -1,14 +1,14 @@
 #include "SDcard.h"
 
-SDCard::SDCard(uint8_t _mosi, uint8_t _miso, uint8_t _sck, uint8_t _cs):
-    mosi(_mosi), miso(_miso), sck(_sck), cs(_cs){};
+SDCard::SDCard(SPIClass &_spi, uint8_t _cs):
+    spi(_spi),  cs(_cs){};
 
 bool SDCard::init(){
-    spi = SPIClass(HSPI);
-    spi.begin(sck, miso, mosi, cs);
-    SPI.setClockDivider(SPI_CLOCK_DIV2);
+    //spi = SPIClass(HSPI);
+    //spi.begin(sck, miso, mosi, cs);
+    //SPI.setClockDivider(SPI_CLOCK_DIV2);
     
-    if(!SD.begin(cs, spi)){
+    if(!SD.begin(cs, spi)){ //idk xD
         return false;
     }
 

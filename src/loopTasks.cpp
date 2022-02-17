@@ -111,10 +111,10 @@ void uiTask(void *arg){
                 
                 }else if(command == "TO1;" || command == "TO2;"){
                     if(command[2] == '1'){
-                        //xTaskCreatePinnedToCore(firstValve.timeOpen, "First time open", 2048, (void*)&time.toInt(), 2, NULL, APP_CPU_NUM); //i think it won't work xDD
+                        xTaskCreatePinnedToCore(timeOpenFirstValve, "First val time open", 2048, (void*)&time, 2, NULL, APP_CPU_NUM); //i think it won't work xDD
                         btTx = "First valve open for " + String(time);
                     }else if(command[2] == '2'){
-                        //xTaskCreatePinnedToCore(secondValve.timeOpen, "Second Val time open", 2048, (void*)&time.toInt(), 2, NULL, APP_CPU_NUM);
+                        xTaskCreatePinnedToCore(timeOpenSecondValve, "Second val time open", 2048, (void*)&time, 2, NULL, APP_CPU_NUM);
                         btTx = "First valve open for " + String(time);
                     }else{
                         btTx = "Unknown valve number";
@@ -176,7 +176,7 @@ void uiTask(void *arg){
                 //start static fire task
                 }else if(command == "SFS;"){
                     //Igniter continuity check
-                    //if(digitalRead(CONTINUITY) == HIGH){
+                    if(analogRead(CONTINUITY) > 2048){
                         if(btUI.checkTimers()){//check timers
                             askTime = xTaskGetTickCount() * portTICK_PERIOD_MS; //start timer
                             btTx = btUI.timersDescription(); //show timers
@@ -185,9 +185,9 @@ void uiTask(void *arg){
                         }else{
                             btTx = "Invalid valve setings";
                         }
-                    //}else{
-                    //   btTx = "Lack of igniter continuity! :C";
-                    // }
+                    }else{
+                       btTx = "Lack of igniter continuity! :C";
+                    }
                     
                 //
                 }else if(command == "SFY;"){
@@ -237,19 +237,23 @@ void stateTask(void *arg){
             portENTER_CRITICAL(&sm.spinlock);
             switch(sm.state){
                 case DISCONNECTED:
-                    sm.timer.setDefault();
+                    digitalWrite(2, HIGH);
                     vTaskSuspend(sm.uiTask);
                     //vTaskSuspend(sm.dataTask);
                     
-                    //security check
+                    //disable for Seba i Krzysiek
+                    //abort after disconnect
+                    //sm.timer.setDefault();
+                    /* 
                     if(sm.staticFireTask != NULL){
                         vTaskDelete(sm.staticFireTask);
                         sm.staticFireTask = NULL;
-                    }
+                    }*/
 
                     break;
 
                 case IDLE:
+                    digitalWrite(2, LOW);
                     //resume suspended tasks
                     sm.timer.setDefault();
                     vTaskResume(sm.uiTask);
@@ -331,12 +335,17 @@ void dataTask(void *arg){
         //czas testu możesz dostać z sm.timer.getTime();
         dataFrame = "";
 
-        //dataFrame += String(analogRead(A0)); example
-
-        ///..... 
-
         /*
-        if(sm.timer.isEnable()){
+        dataFrame += String(analogRead(A0)); example
+
+        xSemaphoreTake(sm.spiMutex, portMAX_DELAY);
+
+        //dataFrame = termoparaRead;
+
+        xSemaphoerGive(sm.spiMutex, portMAX_DELAY);
+ 
+
+        if(sm.timer.isEnable()){  //timer is enable only in COUNTDOWN AND STATIC_FIRE STATE
             xQueueSend(sm.sdQueue, (void*)&dataFrame, 10);
         }
         */
@@ -350,12 +359,14 @@ void dataTask(void *arg){
 }
 
 void sdTask(void *arg){
-    SDCard sd(MOSI, MISO, SCK, SD_CS); //mmiso mosi a
+    //SDCard sd(MOSI, MISO, SCK, SD_CS); //mmiso mosi a
     String data;
     String logPath = "/logs.txt";
     String dataPath = "/data.txt";
 
     vTaskDelay(100 / portTICK_RATE_MS);
+
+    xSemaphoreTake(sm.spiMutex, portMAX_DELAY);
     /*
     while(!sd.init()){
         data = "Sd init error!";
@@ -363,9 +374,12 @@ void sdTask(void *arg){
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
     */
+    xSemaphoreGive(sm.spiMutex);
 
     while(1){
         xQueueReceive(sm.sdQueue, (void*)&data, portMAX_DELAY);
+   /*
+        xSemaphoreTake(sm.spiMutex, portMAX_DELAY);
 
         if(data.startsWith("LOG: ")){ //write logs
             if(!sd.write(logPath, data)){
@@ -376,6 +390,9 @@ void sdTask(void *arg){
                 //error handling
             }
         }
+
+        xSemaphoreGive(sm.spiMutex);
+    */
     }
 }
 
@@ -425,6 +442,13 @@ void staticFireTask(void *arg){
     if(sm.state == ABORT){
         vTaskDelete(NULL);
     }
+    /*
+    if(digitalRead(CONTINUITY) == LOW){
+        msg = "Brak ciaglosci zapalnika";
+        xQueueSend(sm.btTxQueue, (void*)&msg, 0);
+        sm.changeState(ABORT);
+        vTaskDelete(NULL);
+    }*/
 
     //ignition
     sm.changeState(STATIC_FIRE);
@@ -447,9 +471,10 @@ void staticFireTask(void *arg){
                     xQueueSend(sm.btTxQueue, (void*)&msg, 0);
                 //open
                 }else{
+                    xTaskCreatePinnedToCore(openFirstValve, "Valve 1 open", 4096, NULL, 2, &firstValveTask, APP_CPU_NUM);
+                   
                     msg = "First valve open";
                     xQueueSend(sm.btTxQueue, (void*)&msg, 0);
-                    xTaskCreatePinnedToCore(openFirstValve, "Valve 1 open", 4096, NULL, 2, NULL, APP_CPU_NUM);
                 }
             }
         }
@@ -460,14 +485,16 @@ void staticFireTask(void *arg){
                 //time open
                 if(secondValveCloseTime != 0){
                     valveOpenTime = secondValveCloseTime - secondValveOpenTime;
+                    xTaskCreatePinnedToCore(timeOpenSecondValve, "Valve 2", 4096, (void*)&valveOpenTime, 2, &secondValveTask, APP_CPU_NUM);
+                   
                     msg = "Second valve open for: " + String(valveOpenTime);
                     xQueueSend(sm.btTxQueue, (void*)&msg, 0);
-                    xTaskCreatePinnedToCore(timeOpenSecondValve, "Valve 1", 4096, (void*)&valveOpenTime, 2, &secondValveTask, APP_CPU_NUM);
                 //open
                 }else{
+                    xTaskCreatePinnedToCore(openSecondValve, "Valve 2 open", 4096, NULL, 2, &secondValveTask, APP_CPU_NUM);
+                   
                     msg = "Second valve open";
                     xQueueSend(sm.btTxQueue, (void*)&msg, 0);
-                    xTaskCreatePinnedToCore(openSecondValve, "Valve 1 open", 4096, NULL, 2, NULL, APP_CPU_NUM);
                 }
             }
         }
@@ -509,7 +536,9 @@ void calibrationTask(void *arg){
     */
 
     //exit
-    sm.changeState(IDLE);
+    if(sm.state != DISCONNECTED){
+        sm.changeState(IDLE);
+    }
     sm.calibrationTask = NULL;
     vTaskDelete(NULL);
 }
