@@ -5,13 +5,13 @@
 #include <Arduino.h>
 
 class Timer{
-    uint64_t timer;
+    uint32_t timer;
     bool enable;
 
     public:
     Timer();
-    void setTimer(uint64_t _timer);
-    int64_t getTime() const;
+    void setTimer(uint32_t _timer);
+    int32_t getTime() const;
     bool isEnable() const;
     void setDefault();
 };

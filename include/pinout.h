@@ -34,4 +34,15 @@
 #define VALVE_BETWEEN 1
 #define VALVE_CLOSE 0
 
+// LOAD CELLS
+#define LC1_DT 15
+#define LC1_CLK 5
+
+#define LC2_DT 0        // for future
+#define LC2_CLK 0
+
+// THERMOCOUPLES
+#define THERMO1_CS 0    // for future
+#define THERMO2_CS 0
+
 #endif

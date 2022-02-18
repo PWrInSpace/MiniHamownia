@@ -1,0 +1,11 @@
+Co zmienione:
+
+class Timer
+- timer -> z uint64_t na uint32_t (bo String nie przyjmuje wiekszych wartosci od int32)
+
+class SDCard:
+- dodana metoda fileExists
+
+dataTask
+- sprawdzic czy zabawa z LoadCell.update() jest git
+

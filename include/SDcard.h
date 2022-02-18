@@ -17,6 +17,7 @@ class SDCard{
     SDCard(uint8_t _mosi, uint8_t miso, uint8_t _sck, uint8_t _cs);
     bool init();
     bool write(String path, const String & data); 
+    bool fileExists(String path);
 };
 
 #endif

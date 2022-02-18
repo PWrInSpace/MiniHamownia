@@ -3,13 +3,14 @@
 
 #include "BluetoothSerial.h"
 #include "EEPROM.h"
-#define DATA_SIZE 22 //22biits of class data
+#define DATA_SIZE 24 //24 bytes of class data
 #define FIRST_VALVE 1
 #define SECOND_VALVE 2
 
 
 class BluetoothUI{
     uint16_t calibrationFactor; 
+    uint16_t pressureSensCalibrationFactor;
     uint16_t countDownTime;
     uint32_t firstValveOpenTime;
     uint32_t firstValveCloseTime;
@@ -26,6 +27,8 @@ class BluetoothUI{
     
     void setCalibrationFactor(uint16_t cf);
     uint16_t getCalibrationFactor() const;
+    void setPressureSensCalibrationFactor(uint16_t cf);
+    uint16_t getPressureSensCalibrationFactor() const;
     bool setCountDownTime(uint16_t time);
     uint16_t getCountDownTime() const;
     bool setValveOpenTimer(uint32_t time, uint8_t valve); 
