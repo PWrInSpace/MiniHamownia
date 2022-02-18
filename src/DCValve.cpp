@@ -116,16 +116,14 @@ void closeSecondValve(void *arg){
 void timeOpenFirstValve(void *arg){
     uint32_t time = *(uint32_t*)arg;
 
-    //debug
-    Serial.println(time);
-    btUI.println(String(time));
-
     firstValve.timeOpen(time);
     vTaskDelete(NULL);
 }
 
 void timeOpenSecondValve(void *arg){
-    secondValve.timeOpen(*(uint32_t*)arg);
+    uint32_t time = *(uint32_t*)arg;
+
+    secondValve.timeOpen(time);
     vTaskDelete(NULL);
 }
 

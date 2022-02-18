@@ -10,6 +10,7 @@ extern BluetoothUI btUI;
 extern StateMachine sm;
 extern DCValve firstValve;
 extern DCValve secondValve;
+extern SPIClass myspi;
 
 //***********************************//
 //             PRO_CPU               //
@@ -21,30 +22,40 @@ void btReceiveTask(void* arg){
 
     while(true){
         if(btUI.isConnected()){
+            digitalWrite(2, LOW);
+            
             if(btUI.available()){
                 msg = btUI.readString();
                 xQueueSend(sm.btRxQueue, (void*)&msg, 10); //TO DO error handling 
             }    
+
         }else{
-            if(sm.state != DISCONNECTED && sm.state < COUNTDOWN){
-                sm.changeState(DISCONNECTED);
-                //disconnected sound
-                
-                while(!btUI.isConnected()){
-                    vTaskDelay(50 / portTICK_PERIOD_MS);
+            //if(sm.state != DISCONNECTED){
+                digitalWrite(2, HIGH);
+                if(sm.state < COUNTDOWN){
+                    sm.changeState(DISCONNECTED);
+                }else{
+                    msg = "LOG: Disconnected in state: " + String(sm.state) + "\n";
+                    xQueueSend(sm.sdQueue, (void*)&msg, 0);
                 }
+
+                //disconnected sound
+                beepBoop(25, 6);
+                    
+                while(!btUI.isConnected()){
+                    vTaskDelay(100 / portTICK_PERIOD_MS);
+                }
+
                 //connected sound
-
-            }else if(sm.state == COUNTDOWN){
-                sm.changeState(ABORT);
-            }else{
-                msg = "LOG: Disconnected in state: " + String(sm.state);
-                xQueueSend(sm.sdQueue, (void*)&msg, 0);
-            }
+                beepBoop(50, 2);
+                if(sm.state < COUNTDOWN){
+                    sm.changeState(IDLE);
+                }
+                
+                msg = "State: " + String(sm.state);
+                xQueueSend(sm.btTxQueue, (void*)&msg, 10);
+            //}
         }
-        
-        //msg.clear();
-
         vTaskDelay(10 / portTICK_PERIOD_MS);
     }
 }
@@ -176,7 +187,7 @@ void uiTask(void *arg){
                 //start static fire task
                 }else if(command == "SFS;"){
                     //Igniter continuity check
-                    if(analogRead(CONTINUITY) > 2048){
+                    if(analogRead(CONTINUITY) > 512){
                         if(btUI.checkTimers()){//check timers
                             askTime = xTaskGetTickCount() * portTICK_PERIOD_MS; //start timer
                             btTx = btUI.timersDescription(); //show timers
@@ -186,7 +197,8 @@ void uiTask(void *arg){
                             btTx = "Invalid valve setings";
                         }
                     }else{
-                       btTx = "Lack of igniter continuity! :C";
+                        askTime = 0;
+                        btTx = "Lack of igniter continuity! :C";
                     }
                     
                 //
@@ -237,7 +249,6 @@ void stateTask(void *arg){
             portENTER_CRITICAL(&sm.spinlock);
             switch(sm.state){
                 case DISCONNECTED:
-                    digitalWrite(2, HIGH);
                     vTaskSuspend(sm.uiTask);
                     //vTaskSuspend(sm.dataTask);
                     
@@ -253,7 +264,6 @@ void stateTask(void *arg){
                     break;
 
                 case IDLE:
-                    digitalWrite(2, LOW);
                     //resume suspended tasks
                     sm.timer.setDefault();
                     vTaskResume(sm.uiTask);
@@ -288,7 +298,7 @@ void stateTask(void *arg){
                     break;
                 
                 case COUNTDOWN:
-                    xTaskCreatePinnedToCore(staticFireTask, "static fire task", 8192, NULL, 3, &sm.staticFireTask, APP_CPU_NUM);
+                    xTaskCreatePinnedToCore(staticFireTask, "static fire task", 4096, NULL, 3, &sm.staticFireTask, APP_CPU_NUM);
 
                     if(sm.staticFireTask == NULL){
                         stateMsg = "Beep boop error, staticFireTask not created";
@@ -335,8 +345,10 @@ void dataTask(void *arg){
         //czas testu możesz dostać z sm.timer.getTime();
         dataFrame = "";
 
+        dataFrame += String((int)sm.timer.getTime()) + ";";
+
+        dataFrame += String(analogRead(A0)) + "\n"; //example
         /*
-        dataFrame += String(analogRead(A0)); example
 
         xSemaphoreTake(sm.spiMutex, portMAX_DELAY);
 
@@ -345,10 +357,10 @@ void dataTask(void *arg){
         xSemaphoerGive(sm.spiMutex, portMAX_DELAY);
  
 
+        */
         if(sm.timer.isEnable()){  //timer is enable only in COUNTDOWN AND STATIC_FIRE STATE
             xQueueSend(sm.sdQueue, (void*)&dataFrame, 10);
         }
-        */
         /*
         if(btDataFlag){
             xQueueSend(sm.btTxQueue, (void*)&dataFrame, 10);    
@@ -359,7 +371,7 @@ void dataTask(void *arg){
 }
 
 void sdTask(void *arg){
-    //SDCard sd(MOSI, MISO, SCK, SD_CS); //mmiso mosi a
+    SDCard sd(myspi, SD_CS); 
     String data;
     String logPath = "/logs.txt";
     String dataPath = "/data.txt";
@@ -367,18 +379,18 @@ void sdTask(void *arg){
     vTaskDelay(100 / portTICK_RATE_MS);
 
     xSemaphoreTake(sm.spiMutex, portMAX_DELAY);
-    /*
+    
     while(!sd.init()){
         data = "Sd init error!";
         xQueueSend(sm.btTxQueue, (void*)&data, 10);
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
-    */
+    
     xSemaphoreGive(sm.spiMutex);
 
     while(1){
         xQueueReceive(sm.sdQueue, (void*)&data, portMAX_DELAY);
-   /*
+   
         xSemaphoreTake(sm.spiMutex, portMAX_DELAY);
 
         if(data.startsWith("LOG: ")){ //write logs
@@ -392,7 +404,7 @@ void sdTask(void *arg){
         }
 
         xSemaphoreGive(sm.spiMutex);
-    */
+   
     }
 }
 
@@ -417,7 +429,7 @@ void staticFireTask(void *arg){
 
     //set timers
     testStartTime = millis() + countDownTime; //T0
-    testStopTime = (firstValveCloseTime + secondValveCloseTime + 30000) + testStartTime;
+    testStopTime =  (firstValveCloseTime > secondValveCloseTime ? firstValveCloseTime : secondValveCloseTime) + 30000 + testStartTime;
     sm.timer.setTimer(testStartTime);
 
 
@@ -436,19 +448,23 @@ void staticFireTask(void *arg){
             xQueueSend(sm.btTxQueue, (void*)&msg, 0);
 
         }
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
+
+        digitalWrite(BUZZER, HIGH);
+        vTaskDelay(500 / portTICK_PERIOD_MS);
+        digitalWrite(BUZZER, LOW);
+        vTaskDelay(500 / portTICK_PERIOD_MS);
     }
 
     if(sm.state == ABORT){
         vTaskDelete(NULL);
     }
-    /*
-    if(digitalRead(CONTINUITY) == LOW){
+    
+    if(analogRead(CONTINUITY) < 512){
         msg = "Brak ciaglosci zapalnika";
         xQueueSend(sm.btTxQueue, (void*)&msg, 0);
         sm.changeState(ABORT);
         vTaskDelete(NULL);
-    }*/
+    }
 
     //ignition
     sm.changeState(STATIC_FIRE);
@@ -458,20 +474,20 @@ void staticFireTask(void *arg){
 
     //test start time is T0.00
     //valve control
-    while((testStopTime - millis()) > 0){
+    while(testStopTime > millis()){
         //first valve
         if(firstValveEnable && (firstValveTask == NULL)){
             if((millis() - testStartTime) > (firstValveOpenTime)){
                 //time open
                 if(firstValveCloseTime != 0){
                     valveOpenTime = firstValveCloseTime - firstValveOpenTime;
-                    xTaskCreatePinnedToCore(timeOpenFirstValve, "Valve 1", 4096, (void*)&valveOpenTime, 2, &firstValveTask, APP_CPU_NUM);
+                    xTaskCreatePinnedToCore(timeOpenFirstValve, "Valve 1", 1500, (void*)&valveOpenTime, 2, &firstValveTask, APP_CPU_NUM);
                     
                     msg = "First valve open for: " + String(valveOpenTime);
                     xQueueSend(sm.btTxQueue, (void*)&msg, 0);
                 //open
                 }else{
-                    xTaskCreatePinnedToCore(openFirstValve, "Valve 1 open", 4096, NULL, 2, &firstValveTask, APP_CPU_NUM);
+                    xTaskCreatePinnedToCore(openFirstValve, "Valve 1 open", 1500, NULL, 2, &firstValveTask, APP_CPU_NUM);
                    
                     msg = "First valve open";
                     xQueueSend(sm.btTxQueue, (void*)&msg, 0);
@@ -485,13 +501,13 @@ void staticFireTask(void *arg){
                 //time open
                 if(secondValveCloseTime != 0){
                     valveOpenTime = secondValveCloseTime - secondValveOpenTime;
-                    xTaskCreatePinnedToCore(timeOpenSecondValve, "Valve 2", 4096, (void*)&valveOpenTime, 2, &secondValveTask, APP_CPU_NUM);
+                    xTaskCreatePinnedToCore(timeOpenSecondValve, "Valve 2", 1500, (void*)&valveOpenTime, 2, &secondValveTask, APP_CPU_NUM);
                    
                     msg = "Second valve open for: " + String(valveOpenTime);
                     xQueueSend(sm.btTxQueue, (void*)&msg, 0);
                 //open
                 }else{
-                    xTaskCreatePinnedToCore(openSecondValve, "Valve 2 open", 4096, NULL, 2, &secondValveTask, APP_CPU_NUM);
+                    xTaskCreatePinnedToCore(openSecondValve, "Valve 2 open", 1500, NULL, 2, &secondValveTask, APP_CPU_NUM);
                    
                     msg = "Second valve open";
                     xQueueSend(sm.btTxQueue, (void*)&msg, 0);

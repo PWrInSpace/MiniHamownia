@@ -1,6 +1,9 @@
 #ifndef PINOUT_HH
 #define PINOUT_HH
 
+#include "FreeRTOS.h"
+#include "Arduino.h"
+
 #define DOUT 15 //pin 3 Arduino i wyjście DAT czujnika
 #define CLK 26  //pin 2 Arduino i wyjście CLK czujnika
 #define ERROR_LED 2
@@ -21,7 +24,7 @@
 #define PRESS_SENS 36
 
 //Buzzer
-#define BUZZER 2
+#define BUZZER 32
 
 // mySD
 #define MOSI 27
@@ -33,5 +36,8 @@
 #define VALVE_OPEN 2
 #define VALVE_BETWEEN 1
 #define VALVE_CLOSE 0
+
+
+void beepBoop(int delay, int times);
 
 #endif
