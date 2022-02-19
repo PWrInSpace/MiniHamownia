@@ -28,6 +28,7 @@ class DCValve{
     void open();  
     void close();
     void timeOpen(uint32_t time);
+    String getPosition();
 };
 
 #ifdef MAIN_FREERTOS_H_

@@ -87,6 +87,19 @@ void DCValve::timeOpen(uint32_t time){
     this->close();
 }
 
+String DCValve::getPosition()
+{
+    if(!digitalRead(limitSwitchPin1))
+    {
+        return String("Valve closed");
+    }
+    else if(!digitalRead(limitSwitchPin2))
+    {
+        return String("Valve open");
+    }
+    else return String("Valve moving");
+}
+
 #ifdef MAIN_FREERTOS_H_
 
 DCValve firstValve(DCIN1, DCIN2, DC_PWM1, LIM_SW_1, LIM_SW_2);
