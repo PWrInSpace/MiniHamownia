@@ -5,17 +5,22 @@
 #include "loopTasks.h"
 #include "DCValve.h"
 #include "pinout.h"
+#include <SPI.h>
 
 BluetoothUI btUI;
 StateMachine sm;
 extern DCValve firstValve;
 extern DCValve secondValve;
+SPIClass myspi(HSPI);
 
 void setup()
 {
     Serial.begin(115200);  //debug only
     vTaskDelay(1000 / portTICK_PERIOD_MS);
-    //pinMode(2, OUTPUT);
+    
+    pinInit();
+    
+    myspi.begin(SCK, MISO, MOSI);
     
     btUI.begin();
     while(!btUI.isConnected()){
@@ -24,9 +29,12 @@ void setup()
     }
     
     Serial.println("Połączono");
+    beepBoop(50, 2);
 
     firstValve.init();
     secondValve.init();
+
+    sm.spiMutex = xSemaphoreCreateMutex();
 
     sm.btRxQueue = xQueueCreate(Rx_QUEUE_LENGTH, sizeof(String));
     sm.btTxQueue = xQueueCreate(Tx_QUEUE_LENGTH, sizeof(String));
@@ -38,7 +46,7 @@ void setup()
 
     xTaskCreatePinnedToCore(stateTask,      "State task", 4096,  NULL, 3, &sm.stateTask, APP_CPU_NUM);
     xTaskCreatePinnedToCore(dataTask,       "data task",  8192, NULL, 2, &sm.dataTask,  APP_CPU_NUM);
-    xTaskCreatePinnedToCore(sdTask,         "SD task",    4096, NULL, 1, &sm.sdTask,    APP_CPU_NUM);
+    xTaskCreatePinnedToCore(sdTask,         "SD task",    8192, NULL, 1, &sm.sdTask,    APP_CPU_NUM);
 
     //TO DO: check tasks
 

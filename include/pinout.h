@@ -1,6 +1,9 @@
 #ifndef PINOUT_HH
 #define PINOUT_HH
 
+#include "FreeRTOS.h"
+#include "Arduino.h"
+
 #define DOUT 15 //pin 3 Arduino i wyjście DAT czujnika
 #define CLK 26  //pin 2 Arduino i wyjście CLK czujnika
 #define ERROR_LED 2
@@ -11,17 +14,17 @@
 #define IGNITER 19
 
 // DC motors
-#define DCIN1 22
-#define DCIN2 21
-#define LIM_SW_1 12
-#define LIM_SW_2 13
+#define DCIN1 21
+#define DCIN2 22
+#define LIM_SW_1 13
+#define LIM_SW_2 12
 #define DC_PWM1 0
 
 // PRESSURE SENS
 #define PRESS_SENS 36
 
 //Buzzer
-#define BUZZER 2
+#define BUZZER 32
 
 // mySD
 #define MOSI 27
@@ -45,4 +48,6 @@
 #define THERMO1_CS 0    // for future
 #define THERMO2_CS 0
 
+void beepBoop(int delay, int times);
+void pinInit();
 #endif

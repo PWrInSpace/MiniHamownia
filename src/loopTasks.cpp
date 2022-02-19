@@ -11,6 +11,7 @@ extern BluetoothUI btUI;
 extern StateMachine sm;
 extern DCValve firstValve;
 extern DCValve secondValve;
+extern SPIClass myspi;
 
 //***********************************//
 //             PRO_CPU               //
@@ -21,42 +22,42 @@ void btReceiveTask(void *arg)
     // pinMode(BUZZER, OUTPUT); //move to pinout.h
     String msg;
 
-    while (true)
-    {
-        if (btUI.isConnected())
-        {
-            if (btUI.available())
-            {
+    while(true){
+        if(btUI.isConnected()){
+            digitalWrite(2, LOW);
+            
+            if(btUI.available()){
                 msg = btUI.readString();
-                xQueueSend(sm.btRxQueue, (void *)&msg, 10); // TO DO error handling
-            }
-        }
-        else
-        {
-            if (sm.state != DISCONNECTED && sm.state < COUNTDOWN)
-            {
-                sm.changeState(DISCONNECTED);
-                // disconnected sound
+                xQueueSend(sm.btRxQueue, (void*)&msg, 10); //TO DO error handling 
+            }    
 
-                while (!btUI.isConnected())
-                {
-                    vTaskDelay(50 / portTICK_PERIOD_MS);
+        }else{
+            //if(sm.state != DISCONNECTED){
+                digitalWrite(2, HIGH);
+                if(sm.state < COUNTDOWN){
+                    sm.changeState(DISCONNECTED);
+                }else{
+                    msg = "LOG: Disconnected in state: " + String(sm.state) + "\n";
+                    xQueueSend(sm.sdQueue, (void*)&msg, 0);
                 }
-                // connected sound
-            }
-            else if (sm.state == COUNTDOWN)
-            {
-                sm.changeState(ABORT);
-            }
-            else
-            {
-                msg = "LOG: Disconnected in state: " + String(sm.state);
-                xQueueSend(sm.sdQueue, (void *)&msg, 0);
-            }
+
+                //disconnected sound
+                beepBoop(25, 6);
+                    
+                while(!btUI.isConnected()){
+                    vTaskDelay(100 / portTICK_PERIOD_MS);
+                }
+
+                //connected sound
+                beepBoop(50, 2);
+                if(sm.state < COUNTDOWN){
+                    sm.changeState(IDLE);
+                }
+                
+                msg = "State: " + String(sm.state);
+                xQueueSend(sm.btTxQueue, (void*)&msg, 10);
+            //}
         }
-
-        // msg.clear();
-
         vTaskDelay(10 / portTICK_PERIOD_MS);
     }
 }
@@ -143,17 +144,13 @@ void uiTask(void *arg)
                     {
                         btTx = "Unknown valve number";
                     }
-                }
-                else if (command == "TO1;" || command == "TO2;")
-                {
-                    if (command[2] == '1')
-                    {
-                        // xTaskCreatePinnedToCore(firstValve.timeOpen, "First time open", 2048, (void*)&time.toInt(), 2, NULL, APP_CPU_NUM); //i think it won't work xDD
+                
+                }else if(command == "TO1;" || command == "TO2;"){
+                    if(command[2] == '1'){
+                        xTaskCreatePinnedToCore(timeOpenFirstValve, "First val time open", 2048, (void*)&time, 2, NULL, APP_CPU_NUM); //i think it won't work xDD
                         btTx = "First valve open for " + String(time);
-                    }
-                    else if (command[2] == '2')
-                    {
-                        // xTaskCreatePinnedToCore(secondValve.timeOpen, "Second Val time open", 2048, (void*)&time.toInt(), 2, NULL, APP_CPU_NUM);
+                    }else if(command[2] == '2'){
+                        xTaskCreatePinnedToCore(timeOpenSecondValve, "Second val time open", 2048, (void*)&time, 2, NULL, APP_CPU_NUM);
                         btTx = "First valve open for " + String(time);
                     }
                     else
@@ -234,40 +231,31 @@ void uiTask(void *arg)
                 {
                     btTx = btUI.timersDescription();
 
-                    // enable/disable data frame to user
-                }
-                else if (command == "SDF;")
-                {
-                    btTx = "Data frame "; // enable / disable
-                    // set flag btTxFlag
+                //enable/disable data frame to user
+                }else if(command == "SDF;"){
+                    btTx = "Data frame "; //enable / disable
+                    //set flag btTxFlag
 
-                    // start static fire task
-                }
-                else if (command == "SFS;")
-                {
-                    // Igniter continuity check
-                    // if(digitalRead(CONTINUITY) == HIGH){
-                    if (btUI.checkTimers())
-                    {                                                       // check timers
-                        askTime = xTaskGetTickCount() * portTICK_PERIOD_MS; // start timer
-                        btTx = btUI.timersDescription();                    // show timers
-
-                        btTx += "\n\nDo you want to start test with this settings? Write MH;SFY;"; // ask
+                //start static fire task
+                }else if(command == "SFS;"){
+                    //Igniter continuity check
+                    if(analogRead(CONTINUITY) > 512){
+                        if(btUI.checkTimers()){//check timers
+                            askTime = xTaskGetTickCount() * portTICK_PERIOD_MS; //start timer
+                            btTx = btUI.timersDescription(); //show timers
+                        
+                            btTx += "\n\nDo you want to start test with this settings? Write MH;SFY;"; //ask
+                        }else{
+                            btTx = "Invalid valve setings";
+                        }
+                    }else{
+                        askTime = 0;
+                        btTx = "Lack of igniter continuity! :C";
                     }
-                    else
-                    {
-                        btTx = "Invalid valve setings";
-                    }
-                    //}else{
-                    //   btTx = "Lack of igniter continuity! :C";
-                    // }
-
-                    //
-                }
-                else if (command == "SFY;")
-                {
-                    if (askTime == 0)
-                    {
+                    
+                //
+                }else if(command == "SFY;"){
+                    if(askTime == 0){
                         btTx = "Unknown command";
                     }
                     else if ((xTaskGetTickCount() * portTICK_PERIOD_MS) - askTime < askTimeOut)
@@ -313,110 +301,98 @@ void uiTask(void *arg)
 //             APP_CPU               //
 //***********************************//
 
-void stateTask(void *arg)
-{
+void stateTask(void *arg){
     String stateMsg;
-    while (1)
-    {
-        if (ulTaskNotifyTake(pdTRUE, portMAX_DELAY) == pdTRUE)
-        {
-            // critical section begin
+    while(1){
+        if(ulTaskNotifyTake(pdTRUE, portMAX_DELAY) == pdTRUE){
+            //critical section begin
             portENTER_CRITICAL(&sm.spinlock);
-            switch (sm.state)
-            {
-            case DISCONNECTED:
-                sm.timer.setDefault();
-                vTaskSuspend(sm.uiTask);
-                // vTaskSuspend(sm.dataTask);
+            switch(sm.state){
+                case DISCONNECTED:
+                    vTaskSuspend(sm.uiTask);
+                    //vTaskSuspend(sm.dataTask);
+                    
+                    //disable for Seba i Krzysiek
+                    //abort after disconnect
+                    //sm.timer.setDefault();
+                    /* 
+                    if(sm.staticFireTask != NULL){
+                        vTaskDelete(sm.staticFireTask);
+                        sm.staticFireTask = NULL;
+                    }*/
 
-                // security check
-                if (sm.staticFireTask != NULL)
-                {
-                    vTaskDelete(sm.staticFireTask);
-                    sm.staticFireTask = NULL;
-                }
+                    break;
 
-                break;
-
-            case IDLE:
-                // resume suspended tasks
-                sm.timer.setDefault();
-                vTaskResume(sm.uiTask);
-                vTaskResume(sm.dataTask);
-
-                if (sm.calibrationTask != NULL)
-                {
-                    if (eTaskGetState(sm.calibrationTask) != eDeleted)
-                    {
-                        vTaskDelete(sm.calibrationTask);
-                    }
-                    sm.calibrationTask = NULL;
-                }
-
-                stateMsg = "State: IDLE";
-                break;
-
-            case CALIBRATION:
-                vTaskDelay(10 / portTICK_PERIOD_MS);
-                vTaskSuspend(sm.uiTask);   // calibration task will handle ui
-                vTaskSuspend(sm.dataTask); // calibration task need only data from load cell
-
-                xTaskCreatePinnedToCore(calibrationTask, "calibration task", 4096, NULL, 2, &sm.calibrationTask, APP_CPU_NUM);
-
-                if (sm.calibrationTask == NULL)
-                {
-                    stateMsg = "Beep boop error, calibrationTask not created";
+                case IDLE:
+                    //resume suspended tasks
+                    sm.timer.setDefault();
                     vTaskResume(sm.uiTask);
                     vTaskResume(sm.dataTask);
-                    sm.changeState(IDLE);
-                }
-                else
-                {
-                    stateMsg = "State: CALIBRATION";
-                }
 
-                break;
+                    if(sm.calibrationTask != NULL){
+                        if(eTaskGetState(sm.calibrationTask) != eDeleted){
+                            vTaskDelete(sm.calibrationTask);
+                        }
+                        sm.calibrationTask = NULL;
+                    }
+                    
+                    stateMsg = "State: IDLE"; 
+                    break;
 
-            case COUNTDOWN:
-                xTaskCreatePinnedToCore(staticFireTask, "static fire task", 8192, NULL, 3, &sm.staticFireTask, APP_CPU_NUM);
+                case CALIBRATION:
+                    vTaskDelay(10 / portTICK_PERIOD_MS);
+                    vTaskSuspend(sm.uiTask); //calibration task will handle ui
+                    vTaskSuspend(sm.dataTask); //calibration task need only data from load cell
 
-                if (sm.staticFireTask == NULL)
-                {
-                    stateMsg = "Beep boop error, staticFireTask not created";
-                    sm.changeState(IDLE);
-                }
-                else
-                {
-                    stateMsg = "State: COUNTDOWN";
-                }
+                    xTaskCreatePinnedToCore(calibrationTask, "calibration task", 4096, NULL, 2, &sm.calibrationTask, APP_CPU_NUM);
+                    
+                    if(sm.calibrationTask == NULL){
+                        stateMsg = "Beep boop error, calibrationTask not created";
+                        vTaskResume(sm.uiTask);
+                        vTaskResume(sm.dataTask);
+                        sm.changeState(IDLE);
+                    }else{
+                        stateMsg = "State: CALIBRATION";
+                    }
 
-                break;
+                    break;
+                
+                case COUNTDOWN:
+                    xTaskCreatePinnedToCore(staticFireTask, "static fire task", 4096, NULL, 3, &sm.staticFireTask, APP_CPU_NUM);
 
-            case STATIC_FIRE:
-                stateMsg = "State: STATIC_FIRE";
-                break;
+                    if(sm.staticFireTask == NULL){
+                        stateMsg = "Beep boop error, staticFireTask not created";
+                        sm.changeState(IDLE);
+                    }else{
+                        stateMsg = "State: COUNTDOWN";
+                    }
 
-            case ABORT:
-                if (sm.staticFireTask != NULL)
-                {
-                    vTaskDelete(sm.staticFireTask);
-                    sm.staticFireTask = NULL;
-                }
-                // close valve or sth
-                digitalWrite(IGNITER, LOW);
-                sm.timer.setDefault();
-                stateMsg = "State: ABORT";
-                break;
+                    break;
+
+                case STATIC_FIRE:
+                    stateMsg = "State: STATIC_FIRE";
+                    break;
+
+                case ABORT:
+                    if(sm.staticFireTask != NULL){
+                        vTaskDelete(sm.staticFireTask);
+                        sm.staticFireTask = NULL;
+                    }
+                    //close valve or sth
+                    digitalWrite(IGNITER, LOW);
+                    sm.timer.setDefault();
+                    stateMsg = "State: ABORT";
+                    break;
             }
-
-            // critical section end
+    
+            //critical section end
             portEXIT_CRITICAL(&sm.spinlock);
-
-            // state info for user
-            if (sm.state != DISCONNECTED)
-            {
-                xQueueSend(sm.btTxQueue, (void *)&stateMsg, 0);
+            
+            //state info for user
+            if(sm.state != DISCONNECTED){
+                xQueueSend(sm.btTxQueue, (void*)&stateMsg, 0);
             }
+
         }
         vTaskDelay(10 / portTICK_PERIOD_MS);
     }
@@ -467,11 +443,20 @@ void dataTask(void *arg)
 
         ///.....
 
+        dataFrame += String(analogRead(A0)) + "\n"; //example
         /*
-        if(sm.timer.isEnable()){
+
+        xSemaphoreTake(sm.spiMutex, portMAX_DELAY);
+
+        //dataFrame = termoparaRead;
+
+        xSemaphoerGive(sm.spiMutex, portMAX_DELAY);
+ 
+
+        */
+        if(sm.timer.isEnable()){  //timer is enable only in COUNTDOWN AND STATIC_FIRE STATE
             xQueueSend(sm.sdQueue, (void*)&dataFrame, 10);
         }
-        */
         /*
         if(btDataFlag){
             xQueueSend(sm.btTxQueue, (void*)&dataFrame, 10);
@@ -481,14 +466,16 @@ void dataTask(void *arg)
     }
 }
 
-void sdTask(void *arg)
-{
-    SDCard sd(MOSI, MISO, SCK, SD_CS); // miso mosi a
+void sdTask(void *arg){
+    SDCard sd(myspi, SD_CS); 
     String data;
     uint16_t i = 0;
 
-    while (!sd.init())
-    {
+    vTaskDelay(100 / portTICK_RATE_MS);
+
+    xSemaphoreTake(sm.spiMutex, portMAX_DELAY);
+    
+    while(!sd.init()){
         data = "Sd init error!";
         xQueueSend(sm.btTxQueue, (void *)&data, 10);
         vTaskDelay(1000 / portTICK_PERIOD_MS);
@@ -500,12 +487,14 @@ void sdTask(void *arg)
     }
     String logPath = "/logs_test_" + String(i) + ".txt";
     String dataPath = "/data_test_" + String(i) + ".txt";
-
-    vTaskDelay(100 / portTICK_RATE_MS);
+    
+    xSemaphoreGive(sm.spiMutex);
 
     while (1)
     {
         xQueueReceive(sm.sdQueue, (void *)&data, portMAX_DELAY);
+        
+        xSemaphoreTake(sm.spiMutex, portMAX_DELAY);
 
         if (data.startsWith("LOG: "))
         { // write logs
@@ -521,6 +510,9 @@ void sdTask(void *arg)
                 // error handling
             }
         }
+
+        xSemaphoreGive(sm.spiMutex);
+   
     }
 }
 
@@ -543,9 +535,9 @@ void staticFireTask(void *arg)
 
     vTaskDelay(1000 / portTICK_PERIOD_MS);
 
-    // set timers
-    testStartTime = millis() + countDownTime; // T0
-    testStopTime = (firstValveCloseTime + secondValveCloseTime + 30000) + testStartTime;
+    //set timers
+    testStartTime = millis() + countDownTime; //T0
+    testStopTime =  (firstValveCloseTime > secondValveCloseTime ? firstValveCloseTime : secondValveCloseTime) + 30000 + testStartTime;
     sm.timer.setTimer(testStartTime);
 
     // countdown
@@ -565,11 +557,22 @@ void staticFireTask(void *arg)
             msg = String(timeInSec);
             xQueueSend(sm.btTxQueue, (void *)&msg, 0);
         }
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
+
+        digitalWrite(BUZZER, HIGH);
+        vTaskDelay(500 / portTICK_PERIOD_MS);
+        digitalWrite(BUZZER, LOW);
+        vTaskDelay(500 / portTICK_PERIOD_MS);
     }
 
     if (sm.state == ABORT)
     {
+        vTaskDelete(NULL);
+    }
+    
+    if(analogRead(CONTINUITY) < 512){
+        msg = "Brak ciaglosci zapalnika";
+        xQueueSend(sm.btTxQueue, (void*)&msg, 0);
+        sm.changeState(ABORT);
         vTaskDelete(NULL);
     }
 
@@ -578,30 +581,26 @@ void staticFireTask(void *arg)
     igniterState = HIGH;
     digitalWrite(IGNITER, igniterState);
 
-    // test start time is T0.00
-    // valve control
-    while ((testStopTime - millis()) > 0)
-    {
-        // first valve
-        if (firstValveEnable && (firstValveTask == NULL))
-        {
-            if ((millis() - testStartTime) > (firstValveOpenTime))
-            {
-                // time open
-                if (firstValveCloseTime != 0)
-                {
-                    valveOpenTime = firstValveCloseTime - firstValveOpenTime;
-                    xTaskCreatePinnedToCore(timeOpenFirstValve, "Valve 1", 4096, (void *)&valveOpenTime, 2, &firstValveTask, APP_CPU_NUM);
 
+    //test start time is T0.00
+    //valve control
+    while(testStopTime > millis()){
+        //first valve
+        if(firstValveEnable && (firstValveTask == NULL)){
+            if((millis() - testStartTime) > (firstValveOpenTime)){
+                //time open
+                if(firstValveCloseTime != 0){
+                    valveOpenTime = firstValveCloseTime - firstValveOpenTime;
+                    xTaskCreatePinnedToCore(timeOpenFirstValve, "Valve 1", 1500, (void*)&valveOpenTime, 2, &firstValveTask, APP_CPU_NUM);
+                    
                     msg = "First valve open for: " + String(valveOpenTime);
-                    xQueueSend(sm.btTxQueue, (void *)&msg, 0);
-                    // open
-                }
-                else
-                {
+                    xQueueSend(sm.btTxQueue, (void*)&msg, 0);
+                //open
+                }else{
+                    xTaskCreatePinnedToCore(openFirstValve, "Valve 1 open", 1500, NULL, 2, &firstValveTask, APP_CPU_NUM);
+                   
                     msg = "First valve open";
-                    xQueueSend(sm.btTxQueue, (void *)&msg, 0);
-                    xTaskCreatePinnedToCore(openFirstValve, "Valve 1 open", 4096, NULL, 2, NULL, APP_CPU_NUM);
+                    xQueueSend(sm.btTxQueue, (void*)&msg, 0);
                 }
             }
         }
@@ -615,16 +614,16 @@ void staticFireTask(void *arg)
                 if (secondValveCloseTime != 0)
                 {
                     valveOpenTime = secondValveCloseTime - secondValveOpenTime;
+                    xTaskCreatePinnedToCore(timeOpenSecondValve, "Valve 2", 1500, (void*)&valveOpenTime, 2, &secondValveTask, APP_CPU_NUM);
+                   
                     msg = "Second valve open for: " + String(valveOpenTime);
-                    xQueueSend(sm.btTxQueue, (void *)&msg, 0);
-                    xTaskCreatePinnedToCore(timeOpenSecondValve, "Valve 1", 4096, (void *)&valveOpenTime, 2, &secondValveTask, APP_CPU_NUM);
-                    // open
-                }
-                else
-                {
+                    xQueueSend(sm.btTxQueue, (void*)&msg, 0);
+                //open
+                }else{
+                    xTaskCreatePinnedToCore(openSecondValve, "Valve 2 open", 1500, NULL, 2, &secondValveTask, APP_CPU_NUM);
+                   
                     msg = "Second valve open";
-                    xQueueSend(sm.btTxQueue, (void *)&msg, 0);
-                    xTaskCreatePinnedToCore(openSecondValve, "Valve 1 open", 4096, NULL, 2, NULL, APP_CPU_NUM);
+                    xQueueSend(sm.btTxQueue, (void*)&msg, 0);
                 }
             }
         }
@@ -667,8 +666,10 @@ void calibrationTask(void *arg)
     xQueueSend(sm.btTxQueue, (void*)&msg, 0);
     */
 
-    // exit
-    sm.changeState(IDLE);
+    //exit
+    if(sm.state != DISCONNECTED){
+        sm.changeState(IDLE);
+    }
     sm.calibrationTask = NULL;
     vTaskDelete(NULL);
 }

@@ -53,9 +53,8 @@ bool BluetoothUI::checkTimers(){
 String BluetoothUI::timersDescription(){
     String timersMsg;
     timersMsg = "Calibration Factor: " + String(calibrationFactor) + "\n";
+    timersMsg += "Pressure Sensor Calibration Factor: " + String(pressureSensCalibrationFactor) +"\n";
     timersMsg += "Countdown: " + String(countDownTime) + "\n\n";
-    
-    timersMsg += "Pressure Sensor Calibration Factor: " + String(pressureSensCalibrationFactor)
 
     timersMsg += "Valve 1: "; 
     timersMsg += firstValveEnable > 0 ? "Enable" : "Disable";

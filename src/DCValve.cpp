@@ -1,7 +1,7 @@
 #include "DCValve.h" 
-#include "BluetoothSerial.h"
+#include "btUI.h"
 
-extern BluetoothSerial BTSerial;
+extern BluetoothUI btUI;
 
 DCValve::DCValve(uint8_t _motor1, uint8_t _motor2, uint8_t _pwm, uint8_t _lsp1, uint8_t _lsp2, uint16_t _freq, uint8_t _res, uint8_t _chan)
     :motorPin1(_motor1),
@@ -74,19 +74,17 @@ void DCValve::close(){
 
 
 void DCValve::timeOpen(uint32_t time){
-
     uint32_t openTime = time;
     uint32_t valveTimer;
 
-    valveMove(limitSwitchPin2, motorPin1);
+    this->open();
 
     valveTimer = millis();
     while(millis() - valveTimer < openTime){
         vTaskDelay(1 / portTICK_PERIOD_MS);
     }
     
-    valveMove(limitSwitchPin2, motorPin2);
-    vTaskDelete(NULL);
+    this->close();
 }
 
 #ifdef MAIN_FREERTOS_H_
@@ -116,12 +114,16 @@ void closeSecondValve(void *arg){
 }
 
 void timeOpenFirstValve(void *arg){
-    firstValve.timeOpen(*(uint32_t*)arg);
+    uint32_t time = *(uint32_t*)arg;
+
+    firstValve.timeOpen(time);
     vTaskDelete(NULL);
 }
 
 void timeOpenSecondValve(void *arg){
-    secondValve.timeOpen(*(uint32_t*)arg);
+    uint32_t time = *(uint32_t*)arg;
+
+    secondValve.timeOpen(time);
     vTaskDelete(NULL);
 }
 
