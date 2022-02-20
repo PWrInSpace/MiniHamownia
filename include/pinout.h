@@ -48,6 +48,10 @@
 #define THERMO1_CS 0    // for future
 #define THERMO2_CS 0
 
+// BATTERY
+#define BATT_CHECK 0    // for future
+
 void beepBoop(int delay, int times);
+float checkBattery(uint8_t batteryPin, const float &reverseDividerVal);
 void pinInit();
 #endif

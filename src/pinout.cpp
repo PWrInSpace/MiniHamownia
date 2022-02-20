@@ -11,6 +11,12 @@ void beepBoop(int delay, int times)
     }
 }
 
+// reverseDividerVal = (R1 + R2) / R2
+float checkBattery(uint8_t batteryPin, const float &reverseDividerVal)
+{
+    return analogRead(batteryPin) * reverseDividerVal;
+}
+
 void pinInit()
 {
     //
