@@ -221,8 +221,16 @@ void uiTask(void *arg)
           {
             btTx = "Failed to save";
           }
-
-          // calibration
+        }
+        else if (command == "JP1;")
+        {
+          btUI.setCalibrationFactor(time); // value not time :D
+          btTx = "New calibration factor:  " + String(btUI.getCalibrationFactor());
+        }
+        else if (command == "JP2;")
+        {
+          btUI.setPressureSensCalibrationFactor(time); // value not time :)
+          btTx = "New pressure sens calibration factor:  " + String(btUI.getPressureSensCalibrationFactor());
         }
         else if (command == "LC1;" || command == "LC2;" || command == "PSC;")
         {
@@ -253,13 +261,6 @@ void uiTask(void *arg)
           btTx = btUI.timersDescription();
 
           // enable/disable data frame to user
-        }
-        else if (command == "SDF;")
-        {
-          btTx = "Data frame "; // enable / disable
-                                // set flag btTxFlag
-
-          // start static fire task
         }
         else if (command == "SFS;")
         {
@@ -312,6 +313,15 @@ void uiTask(void *arg)
           btTx = "Esp is going to sleep";
 
           // error handling
+        }
+        else if(command == "BTF;")
+        {
+          if(btUI.switchDataFlag())
+            btTx = "Switched BT Data Flag";
+          else
+          {
+            btTx = "ERROR: cannot switch BT Data Flag";
+          }
         }
         else
         {
@@ -452,6 +462,7 @@ void dataTask(void *arg)
   HX711_ADC mainLoadCell(LC1_DT, LC1_CLK);
   uint16_t stabilizingTime = 2000;
   bool _tare = true;
+  uint8_t iter = 0;
 
   Trafag8252 pressureSens(PRESS_SENS, btUI.getPressureSensCalibrationFactor());
 
@@ -509,11 +520,12 @@ void dataTask(void *arg)
     { // timer is enable only in COUNTDOWN AND STATIC_FIRE STATE
       xQueueSend(sm.sdQueue, (void *)&dataFrame, 10);
     }
-    /*
-    if(btDataFlag){
+    
+    if(btUI.checkDataFlag() && iter==100){
         xQueueSend(sm.btTxQueue, (void*)&dataFrame, 10);
+        iter = 0;
     }
-    */
+    iter++;
     vTaskDelay(10 / portTICK_PERIOD_MS);
   }
 }
@@ -821,15 +833,22 @@ void calibrationTask(void *arg)
       xQueueSend(sm.btTxQueue, (void *)&btMsg, 0);
       if (xQueueReceive(sm.btRxQueue, (void *)&btMsg, portMAX_DELAY) == pdTRUE)
       {
-        if (btMsg == "Y")
+        if (btMsg.equalsIgnoreCase("Y"))
         {
           btUI.setCalibrationFactor((uint16_t)a);
+          btUI.saveToFlash();
           btMsg = "Saved value to flash";
         }
-        else
-          btMsg = "Did not save value do flash";
+        else if (btMsg.equalsIgnoreCase("N"))
+        {
+          btMsg = "Did not save to flash";
+        }
         xQueueSend(sm.btTxQueue, (void *)&btMsg, portMAX_DELAY);
       }
+    }
+    else if (btMsg == "PSC;")
+    {
+      // kalibracja czujnika
     }
   }
 

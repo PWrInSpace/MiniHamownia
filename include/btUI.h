@@ -20,6 +20,7 @@ class BluetoothUI{
     uint8_t secondValveEnable;
     //16 first bits of flash memory
     BluetoothSerial BTSerial;
+    bool btDataFlag;
     
     public:
     BluetoothUI() = default;
@@ -39,7 +40,8 @@ class BluetoothUI{
     uint8_t getValveState(uint8_t valve);
 
     bool checkTimers();  //check timers sequence 
-    
+    bool checkDataFlag();
+    bool switchDataFlag();
     void println(const String & message);
     bool isConnected();
     String timersDescription();

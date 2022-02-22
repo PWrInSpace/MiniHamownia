@@ -50,6 +50,18 @@ bool BluetoothUI::checkTimers(){
     return true;
 }
 
+bool BluetoothUI::checkDataFlag()
+{
+    return this->btDataFlag;
+}
+
+bool BluetoothUI::switchDataFlag()
+{
+    if(this->btDataFlag = (!(this->btDataFlag)))
+        return 1;
+    else return 0;
+}
+
 String BluetoothUI::timersDescription(){
     String timersMsg;
     timersMsg = "Calibration Factor: " + String(calibrationFactor) + "\n";
@@ -151,6 +163,7 @@ void BluetoothUI::readFlash(){
 
 void BluetoothUI::setCalibrationFactor(uint16_t cf){
     calibrationFactor = cf;
+
     //saveToFlash();  //not the best solution, but the most user friendly;
 }
 
