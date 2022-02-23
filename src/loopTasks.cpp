@@ -224,17 +224,22 @@ void uiTask(void *arg)
         }
         else if (command == "JP1;")
         {
-          btUI.setCalibrationFactor(time); // value not time :D
-          btTx = "New calibration factor:  " + String(btUI.getCalibrationFactor());
+          btUI.setCalibrationFactor(time, FIRST_LOAD_CELL); // value not time :D
+          btTx = "New calibration factor:  " + String(btUI.getCalibrationFactor(FIRST_LOAD_CELL));
         }
         else if (command == "JP2;")
+        {
+          btUI.setCalibrationFactor(time, SECOND_LOAD_CELL); // value not time :D
+          btTx = "New calibration factor:  " + String(btUI.getCalibrationFactor(SECOND_LOAD_CELL));
+        }
+        else if (command == "JP3;")
         {
           btUI.setPressureSensCalibrationFactor(time); // value not time :)
           btTx = "New pressure sens calibration factor:  " + String(btUI.getPressureSensCalibrationFactor());
         }
         else if (command == "LC1;" || command == "LC2;" || command == "PSC;")
         {
-          if (xQueueSend(sm.btRxQueue, (void *)&btMsg, 0) == pdTRUE)
+          if (xQueueSend(sm.btRxQueue, (void *)&command, 0) == pdTRUE)
           {
             sm.changeState(CALIBRATION);
 
@@ -314,9 +319,9 @@ void uiTask(void *arg)
 
           // error handling
         }
-        else if(command == "BTF;")
+        else if (command == "BTF;")
         {
-          if(btUI.switchDataFlag())
+          if (btUI.switchDataFlag())
             btTx = "Switched BT Data Flag";
           else
           {
@@ -477,7 +482,7 @@ void dataTask(void *arg)
     vTaskDelay(1000 / portTICK_PERIOD_MS);
   }
 
-  mainLoadCell.setCalFactor(btUI.getCalibrationFactor());
+  mainLoadCell.setCalFactor(btUI.getCalibrationFactor(1));
   mainLoadCell.setSamplesInUse(1);
 
   // data = "TIME; THRUST; OXIDANT_WEIGHT; PRESSURE; TEMP_1; TEMP_2; VALVE_1 STATE; VALVE_2 STATE; BATTERY;";
@@ -490,42 +495,47 @@ void dataTask(void *arg)
     // czas testu możesz dostać z sm.timer.getTime();
     dataFrame = "";
 
-    dataFrame += String(sm.timer.getTime());
+    dataFrame += String(sm.timer.getTime()) + "; ";
+
+    if (btUI.checkCalibrationFactorsFlag())
+    {
+      mainLoadCell.setCalFactor(btUI.getCalibrationFactor(1));
+      btUI.switchCalibrationFactorsFlag();
+    }
 
     if (mainLoadCell.update())
     {
       dataFrame += String(mainLoadCell.getData()) + "; ";
-    }
-    else
-    {
-      dataFrame += "; ";
-    }
 
-    dataFrame += String(pressureSens.getPressure()) + "; ";
+      dataFrame += String(pressureSens.getPressure()) + "; ";
 
-    /*
-    xSemaphoreTake(sm.spiMutex, portMAX_DELAY);
+      /*
+      xSemaphoreTake(sm.spiMutex, portMAX_DELAY);
 
-    //dataFrame = termoparaRead;
+      //dataFrame = termoparaRead;
 
-    xSemaphoerGive(sm.spiMutex, portMAX_DELAY);
-    */
+      xSemaphoerGive(sm.spiMutex, portMAX_DELAY);
+      */
 
-    dataFrame += firstValve.getPosition() + "; ";
-    dataFrame += secondValve.getPosition() + "; ";
+      dataFrame += firstValve.getPosition() + "; ";
+      dataFrame += secondValve.getPosition() + "; ";
 
-    // dataFrame += checkBattery(BATT_CHECK, revDividerVal);
+      // dataFrame += checkBattery(BATT_CHECK, revDividerVal);
 
-    if (sm.timer.isEnable())
-    { // timer is enable only in COUNTDOWN AND STATIC_FIRE STATE
-      xQueueSend(sm.sdQueue, (void *)&dataFrame, 10);
-    }
-    
-    if(btUI.checkDataFlag() && iter==100){
-        xQueueSend(sm.btTxQueue, (void*)&dataFrame, 10);
+      if (sm.timer.isEnable())
+      { // timer is enable only in COUNTDOWN AND STATIC_FIRE STATE
+        xQueueSend(sm.sdQueue, (void *)&dataFrame, 10);
+      }
+
+      if (btUI.checkDataFlag() && iter == 10)
+      {
+        // Serial.println(dataFrame);
+        xQueueSend(sm.btTxQueue, (void *)&dataFrame, 10);
         iter = 0;
+      }
+      iter++;
     }
-    iter++;
+
     vTaskDelay(10 / portTICK_PERIOD_MS);
   }
 }
@@ -746,7 +756,7 @@ void calibrationTask(void *arg)
   uint16_t stabilizingTime = 2000;
   bool _tare = true;
   uint8_t dt = LC1_DT, clk = LC1_CLK;
-
+  uint8_t setLoadCell = FIRST_LOAD_CELL;
   if (xQueueReceive(sm.btRxQueue, (void *)&btMsg, portMAX_DELAY) == pdTRUE)
   {
     if (btMsg == "LC1;" || btMsg == "LC2;")
@@ -755,6 +765,7 @@ void calibrationTask(void *arg)
       {
         dt = LC2_DT;
         clk = LC2_CLK;
+        setLoadCell = SECOND_LOAD_CELL;
       }
       HX711_ADC LoadCell(dt, clk);
       LoadCell.begin();
@@ -769,10 +780,12 @@ void calibrationTask(void *arg)
 
       LoadCell.setCalFactor(1.0);
       LoadCell.setSamplesInUse(1);
-      btMsg = "Type MH;TAR; to tare, then MH;MAS;zzzzz (known weight)";
-      xQueueSend(sm.btTxQueue, (void *)&btMsg, 0);
+      
+      
       while (i < n)
       {
+        btMsg = "Type MH;TAR; to tare, then MH;MAS;zzzzz (known weight)";
+        xQueueSend(sm.btTxQueue, (void *)&btMsg, 0);
         if (xQueueReceive(sm.btRxQueue, (void *)&btMsg, portMAX_DELAY) == pdTRUE)
         {
           if (checkCommand(btMsg, prefix, ';', 2))
@@ -835,7 +848,8 @@ void calibrationTask(void *arg)
       {
         if (btMsg.equalsIgnoreCase("Y"))
         {
-          btUI.setCalibrationFactor((uint16_t)a);
+          btUI.setCalibrationFactor((uint16_t)a, setLoadCell);
+          btUI.switchCalibrationFactorsFlag();
           btUI.saveToFlash();
           btMsg = "Saved value to flash";
         }
