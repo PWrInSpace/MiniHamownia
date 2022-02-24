@@ -258,7 +258,7 @@ void uiTask(void *arg)
           btUI.saveToFlash();
 
           btTx = "Saved to flash";
-
+          btUI.switchCalibrationFactorsFlag();
           // show current setings
         }
         else if (command == "SCS;")
@@ -543,7 +543,7 @@ void dataTask(void *arg)
 void sdTask(void *arg)
 {
   SDCard sd(myspi, SD_CS);
-  String data;
+  String data = "";
   uint16_t i = 0;
 
   vTaskDelay(100 / portTICK_RATE_MS);
@@ -557,7 +557,7 @@ void sdTask(void *arg)
     vTaskDelay(1000 / portTICK_PERIOD_MS);
   }
 
-  while (sd.fileExists("/logs_test_" + String(i) + ".txt"))
+  while (sd.fileExists("/data_test_" + String(i) + ".txt"))
   {
     i++;
   }
@@ -568,26 +568,28 @@ void sdTask(void *arg)
 
   while (1)
   {
-    xQueueReceive(sm.sdQueue, (void *)&data, portMAX_DELAY);
+    if (xQueueReceive(sm.sdQueue, (void *)&data, portMAX_DELAY) == pdTRUE)
+    {
+      data += "\n";
+      xSemaphoreTake(sm.spiMutex, portMAX_DELAY);
 
-    xSemaphoreTake(sm.spiMutex, portMAX_DELAY);
-
-    if (data.startsWith("LOG: "))
-    { // write logs
-      if (!sd.write(logPath, data))
-      {
-        // error handling
+      if (data.startsWith("LOG: "))
+      { // write logs
+        if (!sd.write(logPath, data))
+        {
+          // error handling
+        }
       }
-    }
-    else
-    { // write data
-      if (!sd.write(dataPath, data))
-      {
-        // error handling
+      else
+      { // write data
+        if (!sd.write(dataPath, data))
+        {
+          // error handling
+        }
       }
-    }
 
-    xSemaphoreGive(sm.spiMutex);
+      xSemaphoreGive(sm.spiMutex);
+    }
   }
 }
 
@@ -780,8 +782,7 @@ void calibrationTask(void *arg)
 
       LoadCell.setCalFactor(1.0);
       LoadCell.setSamplesInUse(1);
-      
-      
+
       while (i < n)
       {
         btMsg = "Type MH;TAR; to tare, then MH;MAS;zzzzz (known weight)";

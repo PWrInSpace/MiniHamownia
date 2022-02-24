@@ -21,7 +21,8 @@ void setup()
     pinInit();
     
     myspi.begin(SCK, MISO, MOSI);
-    
+    myspi.setClockDivider(SPI_CLOCK_DIV2);
+
     btUI.begin();
     while(!btUI.isConnected()){
         //Serial.println("Nie ma połączenia");
