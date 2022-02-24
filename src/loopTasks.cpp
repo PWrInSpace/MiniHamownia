@@ -333,6 +333,10 @@ void uiTask(void *arg)
           btTx = "Unknown command";
         }
 
+        if(command != "SFS" && askTime != 0){
+          askTime = 0;
+        }
+
         xQueueSend(sm.btTxQueue, (void *)&btTx, 10);
       }
       else
@@ -399,7 +403,7 @@ void stateTask(void *arg)
         vTaskSuspend(sm.uiTask);   // calibration task will handle ui
         vTaskSuspend(sm.dataTask); // calibration task need only data from load cell
 
-        xTaskCreatePinnedToCore(calibrationTask, "calibration task", 4096, NULL, 2, &sm.calibrationTask, APP_CPU_NUM);
+        xTaskCreatePinnedToCore(calibrationTask, "calibration task", 10000, NULL, 2, &sm.calibrationTask, APP_CPU_NUM);
 
         if (sm.calibrationTask == NULL)
         {
@@ -487,8 +491,10 @@ void dataTask(void *arg)
 
   // data = "TIME; THRUST; OXIDANT_WEIGHT; PRESSURE; TEMP_1; TEMP_2; VALVE_1 STATE; VALVE_2 STATE; BATTERY;";
   // ^for full hardware
-  dataFrame = "TIME; THRUST; PRESSURE; VALVE_1 STATE; VALVE_2 STATE;";
-  xQueueSend(sm.sdQueue, (void *)&dataFrame, 10);
+  vTaskDelay(1000 / portTICK_PERIOD_MS);
+  
+  //dataFrame = "TIME; THRUST; PRESSURE; VALVE_1 STATE; VALVE_2 STATE;";
+  //xQueueSend(sm.sdQueue, (void *)&dataFrame, 10);
 
   while (1)
   {
@@ -521,6 +527,7 @@ void dataTask(void *arg)
       dataFrame += secondValve.getPosition() + "; ";
 
       // dataFrame += checkBattery(BATT_CHECK, revDividerVal);
+      dataFrame += "\n";
 
       if (sm.timer.isEnable())
       { // timer is enable only in COUNTDOWN AND STATIC_FIRE STATE
@@ -536,13 +543,14 @@ void dataTask(void *arg)
       iter++;
     }
 
-    vTaskDelay(10 / portTICK_PERIOD_MS);
+    vTaskDelay(50 / portTICK_PERIOD_MS);
   }
 }
 
 void sdTask(void *arg)
 {
   SDCard sd(myspi, SD_CS);
+  String header = "TIME; THRUST; PRESSURE; VALVE_1 STATE; VALVE_2 STATE;\n";
   String data = "";
   uint16_t i = 0;
 
@@ -563,14 +571,14 @@ void sdTask(void *arg)
   }
   String logPath = "/logs_test_" + String(i) + ".txt";
   String dataPath = "/data_test_" + String(i) + ".txt";
-
+  
+  sd.write(dataPath, header);
   xSemaphoreGive(sm.spiMutex);
 
   while (1)
   {
     if (xQueueReceive(sm.sdQueue, (void *)&data, portMAX_DELAY) == pdTRUE)
     {
-      data += "\n";
       xSemaphoreTake(sm.spiMutex, portMAX_DELAY);
 
       if (data.startsWith("LOG: "))
@@ -590,6 +598,8 @@ void sdTask(void *arg)
 
       xSemaphoreGive(sm.spiMutex);
     }
+
+    vTaskDelay(10 / portTICK_PERIOD_MS);
   }
 }
 
@@ -785,6 +795,7 @@ void calibrationTask(void *arg)
 
       while (i < n)
       {
+        Serial.println(xPortGetFreeHeapSize());
         btMsg = "Type MH;TAR; to tare, then MH;MAS;zzzzz (known weight)";
         xQueueSend(sm.btTxQueue, (void *)&btMsg, 0);
         if (xQueueReceive(sm.btRxQueue, (void *)&btMsg, portMAX_DELAY) == pdTRUE)
@@ -817,8 +828,11 @@ void calibrationTask(void *arg)
                 }
                 else
                   btMsg = "No value measured :(";
+                
                 newDataReady = false;
                 ifTared = false;
+              }else{
+                btMsg = "Lipa";
               }
             }
             else if (command == "MAS;" && !ifTared)
