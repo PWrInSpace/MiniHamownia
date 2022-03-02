@@ -57,9 +57,10 @@ bool BluetoothUI::checkDataFlag()
 
 bool BluetoothUI::switchDataFlag()
 {
-    if(this->btDataFlag = (!(this->btDataFlag)))
-        return 1;
-    else return 0;
+    this->btDataFlag = !this->btDataFlag;
+    if(this->btDataFlag)
+        return true;
+    return false;
 }
 
 bool BluetoothUI::checkCalibrationFactorsFlag()
@@ -68,10 +69,11 @@ bool BluetoothUI::checkCalibrationFactorsFlag()
 }
 
 bool BluetoothUI::switchCalibrationFactorsFlag()
-{
-    if(this->btCheckCalibrationFlag = (!(this->btCheckCalibrationFlag)))
-        return 1;
-    else return 0;
+{ 
+    this->btCheckCalibrationFlag = !this->btCheckCalibrationFlag;
+    if(this->btCheckCalibrationFlag)
+        return true;
+    return false;
 }
 
 String BluetoothUI::timersDescription(){

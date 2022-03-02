@@ -619,6 +619,7 @@ void staticFireTask(void *arg)
   TaskHandle_t firstValveTask = NULL;
   TaskHandle_t secondValveTask = NULL;
   bool igniterState = LOW;
+  uint16_t buzzerDelay = 500;
   String msg;
 
   vTaskDelay(1000 / portTICK_PERIOD_MS);
@@ -641,15 +642,15 @@ void staticFireTask(void *arg)
     }
     else if (timeInSec <= 10)
     {
-
+      buzzerDelay += 45;
       msg = String(timeInSec);
       xQueueSend(sm.btTxQueue, (void *)&msg, 0);
     }
 
     digitalWrite(BUZZER, HIGH);
-    vTaskDelay(500 / portTICK_PERIOD_MS);
+    vTaskDelay(buzzerDelay / portTICK_PERIOD_MS);
     digitalWrite(BUZZER, LOW);
-    vTaskDelay(500 / portTICK_PERIOD_MS);
+    vTaskDelay((1000 - buzzerDelay) / portTICK_PERIOD_MS);
   }
 
   if (sm.state == ABORT)
