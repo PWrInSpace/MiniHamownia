@@ -333,7 +333,8 @@ void uiTask(void *arg)
           btTx = "Unknown command";
         }
 
-        if(command != "SFS" && askTime != 0){
+        if (command != "SFS;" && askTime != 0)
+        {
           askTime = 0;
         }
 
@@ -492,9 +493,9 @@ void dataTask(void *arg)
   // data = "TIME; THRUST; OXIDANT_WEIGHT; PRESSURE; TEMP_1; TEMP_2; VALVE_1 STATE; VALVE_2 STATE; BATTERY;";
   // ^for full hardware
   vTaskDelay(1000 / portTICK_PERIOD_MS);
-  
-  //dataFrame = "TIME; THRUST; PRESSURE; VALVE_1 STATE; VALVE_2 STATE;";
-  //xQueueSend(sm.sdQueue, (void *)&dataFrame, 10);
+
+  // dataFrame = "TIME; THRUST; PRESSURE; VALVE_1 STATE; VALVE_2 STATE;";
+  // xQueueSend(sm.sdQueue, (void *)&dataFrame, 10);
 
   while (1)
   {
@@ -571,7 +572,7 @@ void sdTask(void *arg)
   }
   String logPath = "/logs_test_" + String(i) + ".txt";
   String dataPath = "/data_test_" + String(i) + ".txt";
-  
+
   sd.write(dataPath, header);
   xSemaphoreGive(sm.spiMutex);
 
@@ -757,11 +758,12 @@ void calibrationTask(void *arg)
   String btMsg;
   String prefix = "MH;";
   String command;
-  float measuredVal;
-  float mass;
-  float massVsMeasured[2][5];
-  uint8_t i = 0;
+  float measuredVal = 0.0;
+  float mass = 0.0;
+  float pressure = 0.0;
   uint8_t n = 5;
+  float massVsMeasured[2][n];
+  uint8_t i = 0;
 
   bool newDataReady = false;
   bool ifTared = false;
@@ -797,7 +799,9 @@ void calibrationTask(void *arg)
       {
         Serial.println(xPortGetFreeHeapSize());
         btMsg = "Type MH;TAR; to tare, then MH;MAS;zzzzz (known weight)";
-        xQueueSend(sm.btTxQueue, (void *)&btMsg, 0);
+        xQueueSend(sm.btTxQueue, (void *)&btMsg, 10);
+        vTaskDelay(10 / portTICK_PERIOD_MS);
+
         if (xQueueReceive(sm.btRxQueue, (void *)&btMsg, portMAX_DELAY) == pdTRUE)
         {
           if (checkCommand(btMsg, prefix, ';', 2))
@@ -808,7 +812,7 @@ void calibrationTask(void *arg)
             if (command == "TAR;")
             {
               LoadCell.tareNoDelay();
-              btMsg = "Load Cell tared\n Place on object on Load Cell and type MH;MAS;zzzzz (known weight)";
+              btMsg = "Load Cell tared. Place an object on Load Cell and type MH;MAS;zzzzz (known weight)";
               ifTared = true;
             }
             else if (command == "MAS;" && ifTared)
@@ -828,10 +832,12 @@ void calibrationTask(void *arg)
                 }
                 else
                   btMsg = "No value measured :(";
-                
+
                 newDataReady = false;
                 ifTared = false;
-              }else{
+              }
+              else
+              {
                 btMsg = "Lipa";
               }
             }
@@ -858,7 +864,7 @@ void calibrationTask(void *arg)
       a = (n * xysum - xsum * ysum) / (n * x2sum - xsum * xsum);     // calculate slope
       b = (x2sum * ysum - xsum * xysum) / (x2sum * n - xsum * xsum); // calculate intercept
       btMsg = "Calibration factor has been calculated and equals " + String(a) + " constant term equals " + String(b) + "\nSave to flash? (Y/N)";
-      xQueueSend(sm.btTxQueue, (void *)&btMsg, 0);
+      xQueueSend(sm.btTxQueue, (void *)&btMsg, 10);
       if (xQueueReceive(sm.btRxQueue, (void *)&btMsg, portMAX_DELAY) == pdTRUE)
       {
         if (btMsg.equalsIgnoreCase("Y"))
@@ -868,16 +874,17 @@ void calibrationTask(void *arg)
           btUI.saveToFlash();
           btMsg = "Saved value to flash";
         }
-        else if (btMsg.equalsIgnoreCase("N"))
+        else
         {
           btMsg = "Did not save to flash";
         }
-        xQueueSend(sm.btTxQueue, (void *)&btMsg, portMAX_DELAY);
+        xQueueSend(sm.btTxQueue, (void *)&btMsg, 10);
       }
     }
     else if (btMsg == "PSC;")
     {
-      // kalibracja czujnika
+
+      btMsg = "Type MH;";
     }
   }
 

@@ -24,7 +24,7 @@
 #define PRESS_SENS 36
 
 //Buzzer
-#define BUZZER 32
+#define BUZZER 14
 
 // mySD
 #define MOSI 27
