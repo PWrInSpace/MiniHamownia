@@ -54,4 +54,5 @@
 void beepBoop(int delay, int times);
 float checkBattery(uint8_t batteryPin, const float &reverseDividerVal);
 void pinInit();
+
 #endif

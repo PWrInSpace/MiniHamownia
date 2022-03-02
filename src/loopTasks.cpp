@@ -68,6 +68,7 @@ void btReceiveTask(void *arg)
       xQueueSend(sm.btTxQueue, (void *)&msg, 10);
       //}
     }
+    
     vTaskDelay(10 / portTICK_PERIOD_MS);
   }
 }
@@ -265,60 +266,46 @@ void uiTask(void *arg)
         {
           btTx = btUI.timersDescription();
 
-          // enable/disable data frame to user
-        }
-        else if (command == "SFS;")
-        {
-          // Igniter continuity check
-          if (analogRead(CONTINUITY) > 512)
-          {
-            if (btUI.checkTimers())
-            {                                                     // check timers
-              askTime = xTaskGetTickCount() * portTICK_PERIOD_MS; // start timer
-              btTx = btUI.timersDescription();                    // show timers
+                //enable/disable data frame to user
+                }else if(command == "SDF;"){
+                    btTx = "Data frame "; //enable / disable
+                    //set flag btTxFlag
 
-              btTx += "\n\nDo you want to start test with this settings? Write MH;SFY;"; // ask
-            }
-            else
-            {
-              btTx = "Invalid valve setings";
-            }
-          }
-          else
-          {
-            askTime = 0;
-            btTx = "Lack of igniter continuity! :C";
-          }
-
-          //
-        }
-        else if (command == "SFY;")
-        {
-          if (askTime == 0)
-          {
-            btTx = "Unknown command";
-          }
-          else if ((xTaskGetTickCount() * portTICK_PERIOD_MS) - askTime < askTimeOut)
-          {
-            btUI.saveToFlash();
-            btTx = "create static fire task";
-            askTime = 0;
-            sm.changeState(COUNTDOWN);
-          }
-          else
-          {
-            btTx = "Static fire ask time out!";
-            askTime = 0;
-          }
-
-          // turn off esp
-        }
-        else if (command == "RST;")
-        {
-          btTx = "Esp is going to sleep";
-
-          // error handling
-        }
+                //start static fire task
+                }else if(command == "SFS;"){
+                    //Igniter continuity check
+                    if(analogRead(CONTINUITY) > 512){
+                        if(btUI.checkTimers()){//check timers
+                            askTime = xTaskGetTickCount() * portTICK_PERIOD_MS; //start timer
+                            btTx = btUI.timersDescription(); //show timers
+                        
+                            btTx += "\n\nDo you want to start test with this settings? Write MH;SFY;"; //ask
+                        }else{
+                            btTx = "Invalid valve setings";
+                        }
+                    }else{
+                        askTime = 0;
+                        btTx = "Lack of igniter continuity! :C";
+                    }
+                    
+                //
+                }else if(command == "SFY;"){
+                    if(askTime == 0){
+                        btTx = "Unknown command";
+                    }else if((xTaskGetTickCount() * portTICK_PERIOD_MS) - askTime < askTimeOut){
+                        btUI.saveToFlash();
+                        btTx = "create static fire task";
+                        askTime = 0;
+                        sm.changeState(COUNTDOWN);
+                    }else{
+                        btTx = "Static fire ask time out!";
+                        askTime = 0;
+                    }
+                
+                //turn off esp 
+                }else if(command == "RST;"){
+                    btTx = "Esp is going to sleep";
+                }
         else if (command == "BTF;")
         {
           if (btUI.switchDataFlag())
@@ -434,11 +421,9 @@ void stateTask(void *arg)
         }
 
         break;
-
       case STATIC_FIRE:
         stateMsg = "State: STATIC_FIRE";
         break;
-
       case ABORT:
         if (sm.staticFireTask != NULL)
         {
@@ -645,6 +630,13 @@ void staticFireTask(void *arg)
       buzzerDelay += 45;
       msg = String(timeInSec);
       xQueueSend(sm.btTxQueue, (void *)&msg, 0);
+    }
+    
+    if(analogRead(CONTINUITY) < 512){
+        msg = "Brak ciaglosci zapalnika";
+        xQueueSend(sm.btTxQueue, (void*)&msg, 0);
+        sm.changeState(ABORT);
+        vTaskDelete(NULL);
     }
 
     digitalWrite(BUZZER, HIGH);
