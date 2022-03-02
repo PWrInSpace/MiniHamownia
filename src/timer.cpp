@@ -2,12 +2,12 @@
 
 Timer::Timer(): timer(0), enable(false){}
 
-void Timer::setTimer(uint64_t _timer){
+void Timer::setTimer(uint32_t _timer){
     timer = _timer;
     enable = true;
 }
 
-int64_t Timer::getTime() const{
+int32_t Timer::getTime() const{
     return (millis() - timer);
 }
 

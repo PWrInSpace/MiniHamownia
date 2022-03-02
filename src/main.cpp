@@ -17,18 +17,14 @@ void setup()
 {
     Serial.begin(115200);  //debug only
     vTaskDelay(1000 / portTICK_PERIOD_MS);
-    
-    //
-    pinMode(2, OUTPUT); //debug led
-    digitalWrite(2, HIGH);
-    pinMode(IGNITER, OUTPUT);//igniter
-    digitalWrite(IGNITER, LOW);
-    pinMode(BUZZER, OUTPUT);
-    digitalWrite(BUZZER, LOW);
-    //
-    
+
     myspi.begin(SCK, MISO, MOSI);
     
+    pinInit();
+    
+    myspi.begin(SCK, MISO, MOSI);
+    myspi.setClockDivider(SPI_CLOCK_DIV2);
+
     btUI.begin();
     while(!btUI.isConnected()){
         //Serial.println("Nie ma połączenia");

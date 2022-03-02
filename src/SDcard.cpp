@@ -31,3 +31,8 @@ bool SDCard::write(String path, const String & dataFrame){
 
     return true;
 }
+
+bool SDCard::fileExists(String path)
+{
+    return SD.exists(path);
+}

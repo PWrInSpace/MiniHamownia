@@ -3,13 +3,16 @@
 
 #include "BluetoothSerial.h"
 #include "EEPROM.h"
-#define DATA_SIZE 22 //22biits of class data
+#define DATA_SIZE 26 //26 bytes of class data
 #define FIRST_VALVE 1
 #define SECOND_VALVE 2
-
+#define FIRST_LOAD_CELL 1
+#define SECOND_LOAD_CELL 2
 
 class BluetoothUI{
-    uint16_t calibrationFactor; 
+    uint16_t firstLoadCellCalibrationFactor; 
+    uint16_t secondLoadCellCalibrationFactor;
+    uint16_t pressureSensCalibrationFactor;
     uint16_t countDownTime;
     uint32_t firstValveOpenTime;
     uint32_t firstValveCloseTime;
@@ -19,13 +22,17 @@ class BluetoothUI{
     uint8_t secondValveEnable;
     //16 first bits of flash memory
     BluetoothSerial BTSerial;
+    bool btDataFlag;
+    bool btCheckCalibrationFlag;
     
     public:
     BluetoothUI() = default;
     void begin(String name = "rozkurwiacz"); //read from flash
     
-    void setCalibrationFactor(uint16_t cf);
-    uint16_t getCalibrationFactor() const;
+    bool setCalibrationFactor(uint16_t cf, uint8_t loadCellIndex);
+    uint16_t getCalibrationFactor(uint8_t loadCellFactor) const;
+    void setPressureSensCalibrationFactor(uint16_t cf);
+    uint16_t getPressureSensCalibrationFactor() const;
     bool setCountDownTime(uint16_t time);
     uint16_t getCountDownTime() const;
     bool setValveOpenTimer(uint32_t time, uint8_t valve); 
@@ -36,7 +43,10 @@ class BluetoothUI{
     uint8_t getValveState(uint8_t valve);
 
     bool checkTimers();  //check timers sequence 
-    
+    bool checkDataFlag();
+    bool switchDataFlag();
+    bool checkCalibrationFactorsFlag();
+    bool switchCalibrationFactorsFlag();
     void println(const String & message);
     bool isConnected();
     String timersDescription();

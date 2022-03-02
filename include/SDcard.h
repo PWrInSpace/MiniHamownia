@@ -14,6 +14,7 @@ class SDCard{
     SDCard(SPIClass &_spi, uint8_t _cs);
     bool init();
     bool write(String path, const String & data); 
+    bool fileExists(String path);
 };
 
 #endif

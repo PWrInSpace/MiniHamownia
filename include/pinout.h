@@ -24,7 +24,7 @@
 #define PRESS_SENS 36
 
 //Buzzer
-#define BUZZER 32
+#define BUZZER 14
 
 // mySD
 #define MOSI 27
@@ -37,7 +37,22 @@
 #define VALVE_BETWEEN 1
 #define VALVE_CLOSE 0
 
+// LOAD CELLS
+#define LC1_DT 15
+#define LC1_CLK 5
+
+#define LC2_DT 0        // for future
+#define LC2_CLK 0
+
+// THERMOCOUPLES
+#define THERMO1_CS 0    // for future
+#define THERMO2_CS 0
+
+// BATTERY
+#define BATT_CHECK 0    // for future
 
 void beepBoop(int delay, int times);
+float checkBattery(uint8_t batteryPin, const float &reverseDividerVal);
+void pinInit();
 
 #endif

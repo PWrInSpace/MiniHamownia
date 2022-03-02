@@ -1,5 +1,6 @@
 #include "pinout.h"
 
+
 void beepBoop(int delay, int times){
     for(int i=0; i < times; ++i){
         digitalWrite(BUZZER, 1);
@@ -7,4 +8,22 @@ void beepBoop(int delay, int times){
         digitalWrite(BUZZER, 0);
         vTaskDelay(delay / portTICK_PERIOD_MS);
     }
+}
+
+// reverseDividerVal = (R1 + R2) / R2
+float checkBattery(uint8_t batteryPin, const float &reverseDividerVal)
+{
+    return (analogRead(batteryPin) / 4095) * 3.3 * reverseDividerVal;
+}
+
+void pinInit()
+{
+    //
+    pinMode(IGNITER, OUTPUT); // igniter
+    digitalWrite(IGNITER, LOW);
+    pinMode(BUZZER, OUTPUT);
+    digitalWrite(BUZZER, LOW);
+    pinMode(2, OUTPUT); // debug led
+    digitalWrite(2, HIGH);
+    //
 }
