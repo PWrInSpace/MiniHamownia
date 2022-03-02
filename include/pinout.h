@@ -37,6 +37,10 @@
 #define VALVE_BETWEEN 1
 #define VALVE_CLOSE 0
 
+#define SERVO_OPEN_POSITION 20
+#define SERVO_CLOSE_POSITION 103
+#define SERVO_PIN 23
+
 // LOAD CELLS
 #define LC1_DT 15
 #define LC1_CLK 5

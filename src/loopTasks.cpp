@@ -7,12 +7,14 @@
 #include "DCValve.h"
 #include "HX711_ADC.h"
 #include "trafag8252.h"
+#include "ESP32Servo.h"
 
 extern BluetoothUI btUI;
 extern StateMachine sm;
 extern DCValve firstValve;
 extern DCValve secondValve;
 extern SPIClass myspi;
+extern Servo servo;
 
 //***********************************//
 //             PRO_CPU               //
@@ -103,6 +105,8 @@ void uiTask(void *arg)
   String btTx;
   TickType_t askTime = 0;
   TickType_t askTimeOut = 30000;
+  
+  servo.attach(SERVO_PIN, 500, 2400);
 
   while (1)
   {
@@ -122,12 +126,13 @@ void uiTask(void *arg)
         time = btMsg.substring(4).toInt(); // get timer ms
 
         // valve open timer
-        if (command == "MO1;" || command == "MO2;")
+        if (command == "MO1;")
         {
           if (command[2] == '1')
           {
-            xTaskCreatePinnedToCore(openFirstValve, "First Val open", 2048, NULL, 2, NULL, APP_CPU_NUM);
-            btTx = "First valve open";
+            //xTaskCreatePinnedToCore(openFirstValve, "First Val open", 2048, NULL, 2, NULL, APP_CPU_NUM);
+            servo.write(SERVO_OPEN_POSITION);
+            btTx = "Servo open";
           }
           else if (command[2] == '2')
           {
@@ -139,12 +144,13 @@ void uiTask(void *arg)
             btTx = "Unknown valve number";
           }
         }
-        else if (command == "MC1;" || command == "MC2;")
+        else if (command == "MC1;")
         {
           if (command[2] == '1')
           {
-            xTaskCreatePinnedToCore(closeFirstValve, "First Val close", 2048, NULL, 2, NULL, APP_CPU_NUM);
-            btTx = "First valve closed";
+            //xTaskCreatePinnedToCore(closeFirstValve, "First Val close", 2048, NULL, 2, NULL, APP_CPU_NUM);
+            servo.write(SERVO_CLOSE_POSITION);
+            btTx = "Servo closed";
           }
           else if (command[2] == '2')
           {
@@ -156,12 +162,13 @@ void uiTask(void *arg)
             btTx = "Unknown valve number";
           }
         }
-        else if (command == "TO1;" || command == "TO2;")
+        else if (command == "TO1;")
         {
           if (command[2] == '1')
-          {
-            xTaskCreatePinnedToCore(timeOpenFirstValve, "First val time open", 2048, (void *)&time, 2, NULL, APP_CPU_NUM); // i think it won't work xDD
-            btTx = "First valve open for " + String(time);
+          { 
+            servo.write(time);
+            //xTaskCreatePinnedToCore(timeOpenFirstValve, "First val time open", 2048, (void *)&time, 2, NULL, APP_CPU_NUM); // i think it won't work xDD
+            btTx = "Servo move: " + String(time);
           }
           else if (command[2] == '2')
           {
@@ -173,7 +180,7 @@ void uiTask(void *arg)
             btTx = "Unknown valve number";
           }
         }
-        else if (command == "VO1;" || command == "VO2;")
+        else if (command == "VO1;")
         {
           if (btUI.setValveOpenTimer(time, command[2] - 48))
           {
@@ -186,7 +193,7 @@ void uiTask(void *arg)
 
           // valve close timer
         }
-        else if (command == "VC1;" || command == "VC2;")
+        else if (command == "VC1;")
         {
           if (btUI.setValveCloseTimer(time, command[2] - 48))
           {
@@ -199,7 +206,7 @@ void uiTask(void *arg)
 
           // valve enable
         }
-        else if (command == "VE1;" || command == "VE2;")
+        else if (command == "VE1;")
         {
           if (btUI.setValveState(time, command[2] - 48))
           {
@@ -594,24 +601,29 @@ void staticFireTask(void *arg)
   uint16_t countDownTime = btUI.getCountDownTime();
   uint32_t firstValveOpenTime = btUI.getValveOpenTimer(FIRST_VALVE);
   uint32_t firstValveCloseTime = btUI.getValveCloseTimer(FIRST_VALVE);
-  uint8_t firstValveEnable = btUI.getValveState(FIRST_VALVE);
-  uint32_t secondValveOpenTime = btUI.getValveOpenTimer(SECOND_VALVE);
-  uint32_t secondValveCloseTime = btUI.getValveCloseTimer(SECOND_VALVE);
-  uint8_t secondValveEnable = btUI.getValveState(SECOND_VALVE);
-  uint32_t valveOpenTime;
+  //uint8_t firstValveEnable = btUI.getValveState(FIRST_VALVE);
+  //uint32_t secondValveOpenTime = btUI.getValveOpenTimer(SECOND_VALVE);
+  //uint32_t secondValveCloseTime = btUI.getValveCloseTimer(SECOND_VALVE);
+  //uint8_t secondValveEnable = btUI.getValveState(SECOND_VALVE);
+  //uint32_t valveOpenTime;
   uint64_t testStartTime;
   uint64_t testStopTime;
-  TaskHandle_t firstValveTask = NULL;
-  TaskHandle_t secondValveTask = NULL;
+  bool openFlag = false;
+  bool closeFlag = false;
   bool igniterState = LOW;
   uint8_t bipTimes = 1;
   String msg;
 
+  if(firstValveCloseTime == 0){
+    closeFlag = true;
+  }
+
+  servo.attach(SERVO_PIN, 500, 2400);
   vTaskDelay(1000 / portTICK_PERIOD_MS);
 
   // set timers
   testStartTime = millis() + countDownTime; // T0
-  testStopTime = (firstValveCloseTime > secondValveCloseTime ? firstValveCloseTime : secondValveCloseTime) + 30000 + testStartTime;
+  testStopTime = firstValveCloseTime + 30000 + testStartTime;
   sm.timer.setTimer(testStartTime);
 
   // countdown
@@ -660,53 +672,30 @@ void staticFireTask(void *arg)
   // valve control
   while (testStopTime > millis())
   {
-    // first valve
-    if (firstValveEnable && (firstValveTask == NULL))
+    // open valve
+    if (openFlag == false)
     {
       if ((millis() - testStartTime) > (firstValveOpenTime))
       {
-        // time open
-        if (firstValveCloseTime != 0)
-        {
-          valveOpenTime = firstValveCloseTime - firstValveOpenTime;
-          xTaskCreatePinnedToCore(timeOpenFirstValve, "Valve 1", 1500, (void *)&valveOpenTime, 2, &firstValveTask, APP_CPU_NUM);
-
-          msg = "First valve open for: " + String(valveOpenTime);
-          xQueueSend(sm.btTxQueue, (void *)&msg, 0);
-          // open
-        }
-        else
-        {
-          xTaskCreatePinnedToCore(openFirstValve, "Valve 1 open", 1500, NULL, 2, &firstValveTask, APP_CPU_NUM);
-
-          msg = "First valve open";
-          xQueueSend(sm.btTxQueue, (void *)&msg, 0);
-        }
+        servo.write(SERVO_OPEN_POSITION);
+        openFlag = true;
+        msg = "Valve open";
+        xQueueSend(sm.btTxQueue, (void*)&msg, 0);
       }
     }
 
-    // second valve
-    if (secondValveEnable && (secondValveTask == NULL))
-    {
-      if ((millis() - testStartTime) > (secondValveOpenTime))
+    // close valve
+    if (closeFlag == false)
+    { 
+      if(firstValveCloseTime == 0){
+        closeFlag = true;
+      }
+      else if ((millis() - testStartTime) > (firstValveCloseTime))
       {
-        // time open
-        if (secondValveCloseTime != 0)
-        {
-          valveOpenTime = secondValveCloseTime - secondValveOpenTime;
-          xTaskCreatePinnedToCore(timeOpenSecondValve, "Valve 2", 1500, (void *)&valveOpenTime, 2, &secondValveTask, APP_CPU_NUM);
-
-          msg = "Second valve open for: " + String(valveOpenTime);
-          xQueueSend(sm.btTxQueue, (void *)&msg, 0);
-          // open
-        }
-        else
-        {
-          xTaskCreatePinnedToCore(openSecondValve, "Valve 2 open", 1500, NULL, 2, &secondValveTask, APP_CPU_NUM);
-
-          msg = "Second valve open";
-          xQueueSend(sm.btTxQueue, (void *)&msg, 0);
-        }
+        servo.write(SERVO_CLOSE_POSITION);
+        closeFlag = true;
+        msg = "Valve close";
+        xQueueSend(sm.btTxQueue, (void*)&msg, 0);
       }
     }
 
