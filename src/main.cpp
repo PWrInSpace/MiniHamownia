@@ -32,7 +32,7 @@ void setup()
     }
     
     Serial.println("Połączono");
-    beepBoop(50, 2);
+    beepBoop(300, 2);
 
     firstValve.init();
     secondValve.init();

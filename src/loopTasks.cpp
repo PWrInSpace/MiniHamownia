@@ -50,7 +50,7 @@ void btReceiveTask(void *arg)
       }
 
       // disconnected sound
-      beepBoop(25, 6);
+      beepBoop(300, 6);
 
       while (!btUI.isConnected())
       {
@@ -58,7 +58,7 @@ void btReceiveTask(void *arg)
       }
 
       // connected sound
-      beepBoop(50, 2);
+      beepBoop(300, 2);
       if (sm.state < COUNTDOWN)
       {
         sm.changeState(IDLE);
@@ -408,7 +408,7 @@ void stateTask(void *arg)
         break;
 
       case COUNTDOWN:
-        xTaskCreatePinnedToCore(staticFireTask, "static fire task", 4096, NULL, 3, &sm.staticFireTask, APP_CPU_NUM);
+        xTaskCreatePinnedToCore(staticFireTask, "static fire task", 10000, NULL, 3, &sm.staticFireTask, APP_CPU_NUM);
 
         if (sm.staticFireTask == NULL)
         {
@@ -604,7 +604,7 @@ void staticFireTask(void *arg)
   TaskHandle_t firstValveTask = NULL;
   TaskHandle_t secondValveTask = NULL;
   bool igniterState = LOW;
-  uint16_t buzzerDelay = 500;
+  uint8_t bipTimes = 1;
   String msg;
 
   vTaskDelay(1000 / portTICK_PERIOD_MS);
@@ -615,7 +615,7 @@ void staticFireTask(void *arg)
   sm.timer.setTimer(testStartTime);
 
   // countdown
-  while ((testStartTime - millis()) > 0)
+  while ((testStartTime > millis()))
   {
     int timeInSec = (testStartTime - millis()) / 1000;
 
@@ -627,22 +627,13 @@ void staticFireTask(void *arg)
     }
     else if (timeInSec <= 10)
     {
-      buzzerDelay += 45;
+      bipTimes += 1;
       msg = String(timeInSec);
       xQueueSend(sm.btTxQueue, (void *)&msg, 0);
     }
-    
-    if(analogRead(CONTINUITY) < 512){
-        msg = "Brak ciaglosci zapalnika";
-        xQueueSend(sm.btTxQueue, (void*)&msg, 0);
-        sm.changeState(ABORT);
-        vTaskDelete(NULL);
-    }
 
-    digitalWrite(BUZZER, HIGH);
-    vTaskDelay(buzzerDelay / portTICK_PERIOD_MS);
-    digitalWrite(BUZZER, LOW);
-    vTaskDelay((1000 - buzzerDelay) / portTICK_PERIOD_MS);
+    beepBoop(500, bipTimes); //delay include
+    //vTaskDelay(1000  / portTICK_PERIOD_MS);
   }
 
   if (sm.state == ABORT)
@@ -662,6 +653,8 @@ void staticFireTask(void *arg)
   sm.changeState(STATIC_FIRE);
   igniterState = HIGH;
   digitalWrite(IGNITER, igniterState);
+  msg = "Static fire fruuuuu!!!1!";
+  xQueueSend(sm.btTxQueue, (void*)&msg, 0);
 
   // test start time is T0.00
   // valve control
