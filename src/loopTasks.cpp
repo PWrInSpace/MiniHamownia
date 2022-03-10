@@ -3,6 +3,7 @@
 #include "btUI.h"
 #include "stateMachine.h"
 #include "SDcard.h"
+#include "max6675.h"
 #include "pinout.h"
 #include "DCValve.h"
 #include "HX711_ADC.h"
@@ -68,7 +69,7 @@ void btReceiveTask(void *arg)
       xQueueSend(sm.btTxQueue, (void *)&msg, 10);
       //}
     }
-    
+
     vTaskDelay(10 / portTICK_PERIOD_MS);
   }
 }
@@ -266,46 +267,65 @@ void uiTask(void *arg)
         {
           btTx = btUI.timersDescription();
 
-                //enable/disable data frame to user
-                }else if(command == "SDF;"){
-                    btTx = "Data frame "; //enable / disable
-                    //set flag btTxFlag
+          // enable/disable data frame to user
+        }
+        else if (command == "SDF;")
+        {
+          btTx = "Data frame "; // enable / disable
+          // set flag btTxFlag
 
-                //start static fire task
-                }else if(command == "SFS;"){
-                    //Igniter continuity check
-                    if(analogRead(CONTINUITY) > 512){
-                        if(btUI.checkTimers()){//check timers
-                            askTime = xTaskGetTickCount() * portTICK_PERIOD_MS; //start timer
-                            btTx = btUI.timersDescription(); //show timers
-                        
-                            btTx += "\n\nDo you want to start test with this settings? Write MH;SFY;"; //ask
-                        }else{
-                            btTx = "Invalid valve setings";
-                        }
-                    }else{
-                        askTime = 0;
-                        btTx = "Lack of igniter continuity! :C";
-                    }
-                    
-                //
-                }else if(command == "SFY;"){
-                    if(askTime == 0){
-                        btTx = "Unknown command";
-                    }else if((xTaskGetTickCount() * portTICK_PERIOD_MS) - askTime < askTimeOut){
-                        btUI.saveToFlash();
-                        btTx = "create static fire task";
-                        askTime = 0;
-                        sm.changeState(COUNTDOWN);
-                    }else{
-                        btTx = "Static fire ask time out!";
-                        askTime = 0;
-                    }
-                
-                //turn off esp 
-                }else if(command == "RST;"){
-                    btTx = "Esp is going to sleep";
-                }
+          // start static fire task
+        }
+        else if (command == "SFS;")
+        {
+          // Igniter continuity check
+          if (analogRead(CONTINUITY) > 512)
+          {
+            if (btUI.checkTimers())
+            {                                                     // check timers
+              askTime = xTaskGetTickCount() * portTICK_PERIOD_MS; // start timer
+              btTx = btUI.timersDescription();                    // show timers
+
+              btTx += "\n\nDo you want to start test with this settings? Write MH;SFY;"; // ask
+            }
+            else
+            {
+              btTx = "Invalid valve setings";
+            }
+          }
+          else
+          {
+            askTime = 0;
+            btTx = "Lack of igniter continuity! :C";
+          }
+
+          //
+        }
+        else if (command == "SFY;")
+        {
+          if (askTime == 0)
+          {
+            btTx = "Unknown command";
+          }
+          else if ((xTaskGetTickCount() * portTICK_PERIOD_MS) - askTime < askTimeOut)
+          {
+            btUI.saveToFlash();
+            btTx = "create static fire task";
+            askTime = 0;
+            sm.changeState(COUNTDOWN);
+          }
+          else
+          {
+            btTx = "Static fire ask time out!";
+            askTime = 0;
+          }
+
+          // turn off esp
+        }
+        else if (command == "RST;")
+        {
+          btTx = "Esp is going to sleep";
+        }
         else if (command == "BTF;")
         {
           if (btUI.switchDataFlag())
@@ -454,12 +474,22 @@ void dataTask(void *arg)
 {
   String dataFrame;
   // float revDividerVal = (10000.0 + 47000.0)/10000.0;
+
+  // Load Cells
   HX711_ADC mainLoadCell(LC1_DT, LC1_CLK);
   uint16_t stabilizingTime = 2000;
   bool _tare = true;
   uint8_t iter = 0;
 
+  // Pressure sens
   Trafag8252 pressureSens(PRESS_SENS, btUI.getPressureSensCalibrationFactor());
+
+  // Thermocouples
+  xSemaphoreTake(sm.spiMutex, portMAX_DELAY);
+  MAX6675 firstThermo(myspi, THERMO1_CS);
+  MAX6675 secondThermo(myspi, THERMO2_CS);
+  xSemaphoreGive(sm.spiMutex);
+
 
   mainLoadCell.begin();
 
@@ -501,13 +531,12 @@ void dataTask(void *arg)
 
       dataFrame += String(pressureSens.getPressure()) + "; ";
 
-      /*
       xSemaphoreTake(sm.spiMutex, portMAX_DELAY);
 
-      //dataFrame = termoparaRead;
+      dataFrame += String(firstThermo.readCelsius()) + "; ";
+      dataFrame += String(secondThermo.readCelsius()) + "; ";
 
-      xSemaphoerGive(sm.spiMutex, portMAX_DELAY);
-      */
+      xSemaphoreGive(sm.spiMutex);
 
       dataFrame += firstValve.getPosition() + "; ";
       dataFrame += secondValve.getPosition() + "; ";
@@ -522,10 +551,10 @@ void dataTask(void *arg)
 
       if (btUI.checkDataFlag() && iter == 10)
       {
-        // Serial.println(dataFrame);
         xQueueSend(sm.btTxQueue, (void *)&dataFrame, 10);
         iter = 0;
       }
+      Serial.println(dataFrame);
       iter++;
     }
 
@@ -632,8 +661,8 @@ void staticFireTask(void *arg)
       xQueueSend(sm.btTxQueue, (void *)&msg, 0);
     }
 
-    beepBoop(500, bipTimes); //delay include
-    //vTaskDelay(1000  / portTICK_PERIOD_MS);
+    beepBoop(500, bipTimes); // delay include
+    // vTaskDelay(1000  / portTICK_PERIOD_MS);
   }
 
   if (sm.state == ABORT)
@@ -654,7 +683,7 @@ void staticFireTask(void *arg)
   igniterState = HIGH;
   digitalWrite(IGNITER, igniterState);
   msg = "Static fire fruuuuu!!!1!";
-  xQueueSend(sm.btTxQueue, (void*)&msg, 0);
+  xQueueSend(sm.btTxQueue, (void *)&msg, 0);
 
   // test start time is T0.00
   // valve control

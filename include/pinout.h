@@ -27,10 +27,10 @@
 #define BUZZER 14
 
 // mySD
-#define MOSI 27
-#define MISO 25
-#define SCK 26
-#define SD_CS 33
+#define MOSI 21
+#define MISO 4
+#define SCK 5
+#define SD_CS 23
 
 // VALVE STATES
 #define VALVE_OPEN 2
@@ -45,8 +45,8 @@
 #define LC2_CLK 0
 
 // THERMOCOUPLES
-#define THERMO1_CS 0    // for future
-#define THERMO2_CS 0
+#define THERMO1_CS 18    // for future
+#define THERMO2_CS 22
 
 // BATTERY
 #define BATT_CHECK 0    // for future
