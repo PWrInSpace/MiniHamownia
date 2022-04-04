@@ -479,7 +479,7 @@ void dataTask(void *arg)
     vTaskDelay(1000 / portTICK_PERIOD_MS);
   }
 
-  mainLoadCell.setCalFactor(btUI.getCalibrationFactor(1));
+  mainLoadCell.setCalFactor(-620.0);
   mainLoadCell.setSamplesInUse(1);
 
   // data = "TIME; THRUST; OXIDANT_WEIGHT; PRESSURE; TEMP_1; TEMP_2; VALVE_1 STATE; VALVE_2 STATE; BATTERY;";
@@ -498,7 +498,7 @@ void dataTask(void *arg)
 
     if (btUI.checkCalibrationFactorsFlag())
     {
-      mainLoadCell.setCalFactor(btUI.getCalibrationFactor(1));
+      mainLoadCell.setCalFactor(-620.0);
       btUI.switchCalibrationFactorsFlag();
     }
 
@@ -518,7 +518,14 @@ void dataTask(void *arg)
 
       dataFrame += firstValve.getPosition() + "; ";
       dataFrame += secondValve.getPosition() + "; ";
-
+      
+      if(analogRead(CONTINUITY) > 512)
+      {
+        dataFrame += "Jest ciaglosc; ";
+      }
+      else{
+        dataFrame += "Nie ma ciaglosci";
+      }
       // dataFrame += checkBattery(BATT_CHECK, revDividerVal);
       dataFrame += "\n";
 
