@@ -4,52 +4,51 @@
 #include "FreeRTOS.h"
 #include "Arduino.h"
 
-#define DOUT 15 //pin 3 Arduino i wyjście DAT czujnika
-#define CLK 26  //pin 2 Arduino i wyjście CLK czujnika
-#define ERROR_LED 2
-#define STATUS_LED 2
+#define ERROR_LED 0
+#define STATUS_LED 0
 
-// igniter
+// IGNITER //
 #define CONTINUITY 34
-#define IGNITER 19
+#define IGNITER 4
 
-// DC motors
-#define DCIN1 21
-#define DCIN2 22
-#define LIM_SW_1 13
-#define LIM_SW_2 12
+// DC motors //
+#define DCIN1 25
+#define DCIN2 33
+#define LIM_SW_1 5 //closed
+#define LIM_SW_2 18 //open
 #define DC_PWM1 0
 
-// PRESSURE SENS
+// PRESSURE SENS //
 #define PRESS_SENS 36
 
-//Buzzer
-#define BUZZER 14
+// BUZZER //
+#define BUZZER 2
 
-// mySD
-#define MOSI 21
-#define MISO 4
-#define SCK 5
-#define SD_CS 23
+// SD CARD //
+#define MOSI 13
+#define MISO 12
+#define SCK 14
+#define SD_CS 15
+
+// LOAD CELLS //
+#define LC1_DT 16
+#define LC1_CLK 17
+
+#define LC2_DT 35        
+#define LC2_CLK 32
+
+// THERMOCOUPLES
+#define THERMO1_CS 27   
+#define THERMO2_CS 26
+
+// BATTERY
+#define BATT_CHECK 39   
+
 
 // VALVE STATES
 #define VALVE_OPEN 2
 #define VALVE_BETWEEN 1
 #define VALVE_CLOSE 0
-
-// LOAD CELLS
-#define LC1_DT 15
-#define LC1_CLK 5
-
-#define LC2_DT 0        // for future
-#define LC2_CLK 0
-
-// THERMOCOUPLES
-#define THERMO1_CS 18    // for future
-#define THERMO2_CS 22
-
-// BATTERY
-#define BATT_CHECK 0    // for future
 
 void beepBoop(int delay, int times);
 float checkBattery(uint8_t batteryPin, const float &reverseDividerVal);

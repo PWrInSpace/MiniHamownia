@@ -28,7 +28,6 @@ void btReceiveTask(void *arg)
   {
     if (btUI.isConnected())
     {
-      digitalWrite(2, LOW);
 
       if (btUI.available())
       {
@@ -39,7 +38,6 @@ void btReceiveTask(void *arg)
     else
     {
       // if(sm.state != DISCONNECTED){
-      digitalWrite(2, HIGH);
       if (sm.state < COUNTDOWN)
       {
         sm.changeState(DISCONNECTED);
@@ -473,10 +471,11 @@ void stateTask(void *arg)
 void dataTask(void *arg)
 {
   String dataFrame;
-  // float revDividerVal = (10000.0 + 47000.0)/10000.0;
+  float revDividerVal = (10000.0 + 47000.0)/10000.0;
 
   // Load Cells
   HX711_ADC mainLoadCell(LC1_DT, LC1_CLK);
+  HX711_ADC oxidizerLoadCell(LC2_DT, LC2_CLK);
   uint16_t stabilizingTime = 2000;
   bool _tare = true;
   uint8_t iter = 0;
@@ -490,9 +489,8 @@ void dataTask(void *arg)
   MAX6675 secondThermo(myspi, THERMO2_CS);
   xSemaphoreGive(sm.spiMutex);
 
-
+  // Main Load Cell
   mainLoadCell.begin();
-
   mainLoadCell.start(stabilizingTime, _tare);
 
   while (mainLoadCell.getTareTimeoutFlag())
@@ -505,12 +503,26 @@ void dataTask(void *arg)
   mainLoadCell.setCalFactor(btUI.getCalibrationFactor(1));
   mainLoadCell.setSamplesInUse(1);
 
+  // Oxidizer Load Cell
+  oxidizerLoadCell.begin();
+  oxidizerLoadCell.start(stabilizingTime, _tare);
+
+  while (oxidizerLoadCell.getTareTimeoutFlag())
+  {
+    dataFrame = "oxidizer Load Cell Disconnected!";
+    xQueueSend(sm.btTxQueue, (void *)&dataFrame, 10);
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
+  }
+
+  oxidizerLoadCell.setCalFactor(btUI.getCalibrationFactor(1));
+  oxidizerLoadCell.setSamplesInUse(1);
+
   // data = "TIME; THRUST; OXIDANT_WEIGHT; PRESSURE; TEMP_1; TEMP_2; VALVE_1 STATE; VALVE_2 STATE; BATTERY;";
   // ^for full hardware
   vTaskDelay(1000 / portTICK_PERIOD_MS);
 
-  // dataFrame = "TIME; THRUST; PRESSURE; VALVE_1 STATE; VALVE_2 STATE;";
-  // xQueueSend(sm.sdQueue, (void *)&dataFrame, 10);
+  dataFrame = "TIME; THRUST; OXIDANT_WEIGHT; PRESSURE; TEMP_1; TEMP_2; VALVE_1 STATE; VALVE_2 STATE; BATTERY;";
+  xQueueSend(sm.sdQueue, (void *)&dataFrame, 10);
 
   while (1)
   {
@@ -522,13 +534,14 @@ void dataTask(void *arg)
     if (btUI.checkCalibrationFactorsFlag())
     {
       mainLoadCell.setCalFactor(btUI.getCalibrationFactor(1));
+      oxidizerLoadCell.setCalFactor(btUI.getCalibrationFactor(1));
       btUI.switchCalibrationFactorsFlag();
     }
 
-    if (mainLoadCell.update())
+    if (mainLoadCell.update() == 1 || oxidizerLoadCell.update() == 1)
     {
       dataFrame += String(mainLoadCell.getData()) + "; ";
-
+      dataFrame += String(oxidizerLoadCell.getData()) + "; ";
       dataFrame += String(pressureSens.getPressure()) + "; ";
 
       xSemaphoreTake(sm.spiMutex, portMAX_DELAY);
@@ -541,7 +554,7 @@ void dataTask(void *arg)
       dataFrame += firstValve.getPosition() + "; ";
       dataFrame += secondValve.getPosition() + "; ";
 
-      // dataFrame += checkBattery(BATT_CHECK, revDividerVal);
+      dataFrame += checkBattery(BATT_CHECK, revDividerVal);
       dataFrame += "\n";
 
       if (sm.timer.isEnable())
