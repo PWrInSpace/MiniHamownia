@@ -25,7 +25,6 @@ void pinInit()
     pinMode(BUZZER, OUTPUT);
     digitalWrite(BUZZER, LOW);
     pinMode(2, OUTPUT); // debug led
-    digitalWrite(2, HIGH);
     //
 }
 

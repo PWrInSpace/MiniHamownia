@@ -29,7 +29,6 @@ void btReceiveTask(void *arg)
   {
     if (btUI.isConnected())
     {
-      digitalWrite(2, LOW);
 
       if (btUI.available())
       {
@@ -40,7 +39,6 @@ void btReceiveTask(void *arg)
     else
     {
       // if(sm.state != DISCONNECTED){
-      digitalWrite(2, HIGH);
       if (sm.state < COUNTDOWN)
       {
         sm.changeState(DISCONNECTED);
@@ -70,7 +68,7 @@ void btReceiveTask(void *arg)
       xQueueSend(sm.btTxQueue, (void *)&msg, 10);
       //}
     }
-    
+
     vTaskDelay(10 / portTICK_PERIOD_MS);
   }
 }
@@ -105,7 +103,7 @@ void uiTask(void *arg)
   String btTx;
   TickType_t askTime = 0;
   TickType_t askTimeOut = 30000;
-  
+
   servo.attach(SERVO_PIN, 500, 2400);
 
   while (1)
@@ -130,7 +128,7 @@ void uiTask(void *arg)
         {
           if (command[2] == '1')
           {
-            //xTaskCreatePinnedToCore(openFirstValve, "First Val open", 2048, NULL, 2, NULL, APP_CPU_NUM);
+            // xTaskCreatePinnedToCore(openFirstValve, "First Val open", 2048, NULL, 2, NULL, APP_CPU_NUM);
             servo.write(SERVO_OPEN_POSITION);
             btTx = "Servo open";
           }
@@ -148,7 +146,7 @@ void uiTask(void *arg)
         {
           if (command[2] == '1')
           {
-            //xTaskCreatePinnedToCore(closeFirstValve, "First Val close", 2048, NULL, 2, NULL, APP_CPU_NUM);
+            // xTaskCreatePinnedToCore(closeFirstValve, "First Val close", 2048, NULL, 2, NULL, APP_CPU_NUM);
             servo.write(SERVO_CLOSE_POSITION);
             btTx = "Servo closed";
           }
@@ -165,9 +163,9 @@ void uiTask(void *arg)
         else if (command == "TO1;")
         {
           if (command[2] == '1')
-          { 
+          {
             servo.write(time);
-            //xTaskCreatePinnedToCore(timeOpenFirstValve, "First val time open", 2048, (void *)&time, 2, NULL, APP_CPU_NUM); // i think it won't work xDD
+            // xTaskCreatePinnedToCore(timeOpenFirstValve, "First val time open", 2048, (void *)&time, 2, NULL, APP_CPU_NUM); // i think it won't work xDD
             btTx = "Servo move: " + String(time);
           }
           else if (command[2] == '2')
@@ -273,46 +271,65 @@ void uiTask(void *arg)
         {
           btTx = btUI.timersDescription();
 
-                //enable/disable data frame to user
-                }else if(command == "SDF;"){
-                    btTx = "Data frame "; //enable / disable
-                    //set flag btTxFlag
+          // enable/disable data frame to user
+        }
+        else if (command == "SDF;")
+        {
+          btTx = "Data frame "; // enable / disable
+          // set flag btTxFlag
 
-                //start static fire task
-                }else if(command == "SFS;"){
-                    //Igniter continuity check
-                    if(analogRead(CONTINUITY) > 512){
-                        if(btUI.checkTimers()){//check timers
-                            askTime = xTaskGetTickCount() * portTICK_PERIOD_MS; //start timer
-                            btTx = btUI.timersDescription(); //show timers
-                        
-                            btTx += "\n\nDo you want to start test with this settings? Write MH;SFY;"; //ask
-                        }else{
-                            btTx = "Invalid valve setings";
-                        }
-                    }else{
-                        askTime = 0;
-                        btTx = "Lack of igniter continuity! :C";
-                    }
-                    
-                //
-                }else if(command == "SFY;"){
-                    if(askTime == 0){
-                        btTx = "Unknown command";
-                    }else if((xTaskGetTickCount() * portTICK_PERIOD_MS) - askTime < askTimeOut){
-                        btUI.saveToFlash();
-                        btTx = "create static fire task";
-                        askTime = 0;
-                        sm.changeState(COUNTDOWN);
-                    }else{
-                        btTx = "Static fire ask time out!";
-                        askTime = 0;
-                    }
-                
-                //turn off esp 
-                }else if(command == "RST;"){
-                    btTx = "Esp is going to sleep";
-                }
+          // start static fire task
+        }
+        else if (command == "SFS;")
+        {
+          // Igniter continuity check
+          if (analogRead(CONTINUITY) > 512)
+          {
+            if (btUI.checkTimers())
+            {                                                     // check timers
+              askTime = xTaskGetTickCount() * portTICK_PERIOD_MS; // start timer
+              btTx = btUI.timersDescription();                    // show timers
+
+              btTx += "\n\nDo you want to start test with this settings? Write MH;SFY;"; // ask
+            }
+            else
+            {
+              btTx = "Invalid valve setings";
+            }
+          }
+          else
+          {
+            askTime = 0;
+            btTx = "Lack of igniter continuity! :C";
+          }
+
+          //
+        }
+        else if (command == "SFY;")
+        {
+          if (askTime == 0)
+          {
+            btTx = "Unknown command";
+          }
+          else if ((xTaskGetTickCount() * portTICK_PERIOD_MS) - askTime < askTimeOut)
+          {
+            btUI.saveToFlash();
+            btTx = "create static fire task";
+            askTime = 0;
+            sm.changeState(COUNTDOWN);
+          }
+          else
+          {
+            btTx = "Static fire ask time out!";
+            askTime = 0;
+          }
+
+          // turn off esp
+        }
+        else if (command == "RST;")
+        {
+          btTx = "Esp is going to sleep";
+        }
         else if (command == "BTF;")
         {
           if (btUI.switchDataFlag())
@@ -479,7 +496,7 @@ void dataTask(void *arg)
     vTaskDelay(1000 / portTICK_PERIOD_MS);
   }
 
-  mainLoadCell.setCalFactor(-620.0);
+  mainLoadCell.setCalFactor(btUI.getCalibrationFactor(1));
   mainLoadCell.setSamplesInUse(1);
 
   // data = "TIME; THRUST; OXIDANT_WEIGHT; PRESSURE; TEMP_1; TEMP_2; VALVE_1 STATE; VALVE_2 STATE; BATTERY;";
@@ -498,7 +515,7 @@ void dataTask(void *arg)
 
     if (btUI.checkCalibrationFactorsFlag())
     {
-      mainLoadCell.setCalFactor(-620.0);
+      mainLoadCell.setCalFactor(btUI.getCalibrationFactor(1));
       btUI.switchCalibrationFactorsFlag();
     }
 
@@ -518,12 +535,13 @@ void dataTask(void *arg)
 
       dataFrame += firstValve.getPosition() + "; ";
       dataFrame += secondValve.getPosition() + "; ";
-      
-      if(analogRead(CONTINUITY) > 512)
+
+      if (analogRead(CONTINUITY) > 512)
       {
         dataFrame += "Jest ciaglosc; ";
       }
-      else{
+      else
+      {
         dataFrame += "Nie ma ciaglosci";
       }
       // dataFrame += checkBattery(BATT_CHECK, revDividerVal);
@@ -542,6 +560,7 @@ void dataTask(void *arg)
       }
       iter++;
     }
+    Serial.println("DUPA");
 
     vTaskDelay(50 / portTICK_PERIOD_MS);
   }
@@ -608,11 +627,11 @@ void staticFireTask(void *arg)
   uint16_t countDownTime = btUI.getCountDownTime();
   uint32_t firstValveOpenTime = btUI.getValveOpenTimer(FIRST_VALVE);
   uint32_t firstValveCloseTime = btUI.getValveCloseTimer(FIRST_VALVE);
-  //uint8_t firstValveEnable = btUI.getValveState(FIRST_VALVE);
-  //uint32_t secondValveOpenTime = btUI.getValveOpenTimer(SECOND_VALVE);
-  //uint32_t secondValveCloseTime = btUI.getValveCloseTimer(SECOND_VALVE);
-  //uint8_t secondValveEnable = btUI.getValveState(SECOND_VALVE);
-  //uint32_t valveOpenTime;
+  // uint8_t firstValveEnable = btUI.getValveState(FIRST_VALVE);
+  // uint32_t secondValveOpenTime = btUI.getValveOpenTimer(SECOND_VALVE);
+  // uint32_t secondValveCloseTime = btUI.getValveCloseTimer(SECOND_VALVE);
+  // uint8_t secondValveEnable = btUI.getValveState(SECOND_VALVE);
+  // uint32_t valveOpenTime;
   uint64_t testStartTime;
   uint64_t testStopTime;
   bool openFlag = false;
@@ -621,7 +640,8 @@ void staticFireTask(void *arg)
   uint8_t bipTimes = 1;
   String msg;
 
-  if(firstValveCloseTime == 0){
+  if (firstValveCloseTime == 0)
+  {
     closeFlag = true;
   }
 
@@ -651,8 +671,8 @@ void staticFireTask(void *arg)
       xQueueSend(sm.btTxQueue, (void *)&msg, 0);
     }
 
-    beepBoop(500, bipTimes); //delay include
-    //vTaskDelay(1000  / portTICK_PERIOD_MS);
+    beepBoop(500, bipTimes); // delay include
+    // vTaskDelay(1000  / portTICK_PERIOD_MS);
   }
 
   if (sm.state == ABORT)
@@ -673,7 +693,7 @@ void staticFireTask(void *arg)
   igniterState = HIGH;
   digitalWrite(IGNITER, igniterState);
   msg = "Static fire fruuuuu!!!1!";
-  xQueueSend(sm.btTxQueue, (void*)&msg, 0);
+  xQueueSend(sm.btTxQueue, (void *)&msg, 0);
 
   // test start time is T0.00
   // valve control
@@ -687,14 +707,15 @@ void staticFireTask(void *arg)
         servo.write(SERVO_OPEN_POSITION);
         openFlag = true;
         msg = "Valve open";
-        xQueueSend(sm.btTxQueue, (void*)&msg, 0);
+        xQueueSend(sm.btTxQueue, (void *)&msg, 0);
       }
     }
 
     // close valve
     if (closeFlag == false)
-    { 
-      if(firstValveCloseTime == 0){
+    {
+      if (firstValveCloseTime == 0)
+      {
         closeFlag = true;
       }
       else if ((millis() - testStartTime) > (firstValveCloseTime))
@@ -702,7 +723,7 @@ void staticFireTask(void *arg)
         servo.write(SERVO_CLOSE_POSITION);
         closeFlag = true;
         msg = "Valve close";
-        xQueueSend(sm.btTxQueue, (void*)&msg, 0);
+        xQueueSend(sm.btTxQueue, (void *)&msg, 0);
       }
     }
 
@@ -747,7 +768,7 @@ void calibrationTask(void *arg)
   float massVsMeasured[2][n];
   uint8_t i = 0;
 
-  bool newDataReady = false;
+  // bool newDataReady = false;
   bool ifTared = false;
   uint16_t stabilizingTime = 2000;
   bool _tare = true;
@@ -800,28 +821,21 @@ void calibrationTask(void *arg)
             else if (command == "MAS;" && ifTared)
             {
               mass = btMsg.substring(4).toFloat();
-              if (LoadCell.update())
-                newDataReady = true;
-              if (newDataReady)
+              while (!LoadCell.update())
+                ;
+              measuredVal = LoadCell.getData();
+              if (measuredVal != 0.0)
               {
-                measuredVal = LoadCell.getData();
-                if (measuredVal != 0.0)
-                {
-                  btMsg = "Measured value is " + String(measuredVal);
-                  massVsMeasured[0][i] = mass;
-                  massVsMeasured[1][i] = measuredVal;
-                  i++;
-                }
-                else
-                  btMsg = "No value measured :(";
-
-                newDataReady = false;
-                ifTared = false;
+                btMsg = "Measured value is " + String(measuredVal);
+                massVsMeasured[0][i] = mass;
+                massVsMeasured[1][i] = measuredVal;
+                i++;
               }
               else
-              {
-                btMsg = "Lipa";
-              }
+                btMsg = "No value measured :(";
+
+              // newDataReady = false;
+              ifTared = false;
             }
             else if (command == "MAS;" && !ifTared)
             {
