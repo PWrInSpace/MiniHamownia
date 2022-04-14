@@ -2,6 +2,7 @@
 
 void BluetoothUI::begin(String name){
     BTSerial.begin(name);
+    tareFlag = 0;
     EEPROM.begin(DATA_SIZE);
     this->readFlash();
 }

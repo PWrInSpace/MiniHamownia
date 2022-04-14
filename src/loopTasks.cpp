@@ -339,6 +339,10 @@ void uiTask(void *arg)
             btTx = "ERROR: cannot switch BT Data Flag";
           }
         }
+        else if (command == "TAR;")
+        {
+          btUI.tareFlag = 1;
+        }
         else
         {
           btTx = "Unknown command";
@@ -508,6 +512,11 @@ void dataTask(void *arg)
 
   while (1)
   {
+    if (btUI.tareFlag)
+    {
+      mainLoadCell.tareNoDelay();
+      btUI.tareFlag = 0;
+    }
     // czas testu możesz dostać z sm.timer.getTime();
     dataFrame = "";
 
@@ -764,11 +773,11 @@ void calibrationTask(void *arg)
   float measuredVal = 0.0;
   float mass = 0.0;
   float pressure = 0.0;
-  uint8_t n = 5;
+  uint8_t n = 3;
   float massVsMeasured[2][n];
-  uint8_t i = 0;
+  uint8_t i = 0, j = 0;
 
-  // bool newDataReady = false;
+  bool newDataReady = false;
   bool ifTared = false;
   uint16_t stabilizingTime = 2000;
   bool _tare = true;
@@ -800,8 +809,8 @@ void calibrationTask(void *arg)
 
       while (i < n)
       {
-        Serial.println(xPortGetFreeHeapSize());
-        btMsg = "Type MH;TAR; to tare, then MH;MAS;zzzzz (known weight)";
+        // Serial.println(xPortGetFreeHeapSize());
+        btMsg = "Measurement " + String(i + 1) + ". Type MH;TAR; to tare, the known weight";
         xQueueSend(sm.btTxQueue, (void *)&btMsg, 10);
         vTaskDelay(10 / portTICK_PERIOD_MS);
 
@@ -815,47 +824,66 @@ void calibrationTask(void *arg)
             if (command == "TAR;")
             {
               LoadCell.tareNoDelay();
-              btMsg = "Load Cell tared. Place an object on Load Cell and type MH;MAS;zzzzz (known weight)";
+              btMsg = "Load Cell tared. Place an object on Load Cell its own weight (float)";
               ifTared = true;
-            }
-            else if (command == "MAS;" && ifTared)
-            {
-              mass = btMsg.substring(4).toFloat();
-              while (!LoadCell.update())
-                ;
-              measuredVal = LoadCell.getData();
-              if (measuredVal != 0.0)
-              {
-                btMsg = "Measured value is " + String(measuredVal);
-                massVsMeasured[0][i] = mass;
-                massVsMeasured[1][i] = measuredVal;
-                i++;
-              }
-              else
-                btMsg = "No value measured :(";
-
-              // newDataReady = false;
-              ifTared = false;
-            }
-            else if (command == "MAS;" && !ifTared)
-            {
-              btMsg = "Tare first!";
             }
             else
             {
-              btMsg = "Unknown command";
+              btMsg = "ERROR: Type MH;TAR; to tare the load cell";
             }
             xQueueSend(sm.btTxQueue, (void *)&btMsg, 10);
           }
+          if (xQueueReceive(sm.btRxQueue, (void *)&btMsg, portMAX_DELAY) == pdTRUE)
+          {
+            if (btMsg.toFloat() && ifTared)
+            {
+              mass = btMsg.toFloat();
+              if (LoadCell.update())
+                newDataReady = true;
+              if (newDataReady)
+              {
+                measuredVal = LoadCell.getData();
+                if (measuredVal != 0.0)
+                {
+                  btMsg = "Measured value is " + String(measuredVal);
+                  massVsMeasured[0][i] = mass;
+                  massVsMeasured[1][i] = measuredVal;
+                  i++;
+                }
+                else
+                  btMsg = "No value measured :(";
+
+                newDataReady = false;
+                ifTared = false;
+              }
+              else
+              {
+                btMsg = "Lipa";
+              }
+              xQueueSend(sm.btTxQueue, (void *)&btMsg, 10);
+            }
+            else
+            {
+              btMsg = "Not a valid float";
+              xQueueSend(sm.btTxQueue, (void *)&btMsg, 10);
+            }
+          }
         }
       }
-      float xsum = 0, x2sum = 0, ysum = 0, xysum = 0, a, b; // variables for sums/sigma of xi,yi,xi^2,xiyi etc
-      for (i = 0; i < n; i++)
+
+      for (j = 0; j < n; j++)
       {
-        xsum = xsum + massVsMeasured[0][i];                          // calculate sigma(xi)
-        ysum = ysum + massVsMeasured[1][i];                          // calculate sigma(yi)
-        x2sum = x2sum + massVsMeasured[0][i] * massVsMeasured[0][i]; // calculate sigma(x^2i)
-        xysum = xysum + massVsMeasured[0][i] * massVsMeasured[1][i]; // calculate sigma(xi*yi)
+        btMsg += String(massVsMeasured[0][j]) + " " + String(massVsMeasured[1][j]) + " ";
+      }
+
+      xQueueSend(sm.btTxQueue, (void *)&btMsg, 10);
+      float xsum = 0, x2sum = 0, ysum = 0, xysum = 0, a, b; // variables for sums/sigma of xi,yi,xi^2,xiyi etc
+      for (j = 0; j < n; j++)
+      {
+        xsum = xsum + massVsMeasured[0][j];                          // calculate sigma(xi)
+        ysum = ysum + massVsMeasured[1][j];                          // calculate sigma(yi)
+        x2sum = x2sum + massVsMeasured[0][j] * massVsMeasured[0][j]; // calculate sigma(x^2i)
+        xysum = xysum + massVsMeasured[0][j] * massVsMeasured[1][j]; // calculate sigma(xi*yi)
       }
       a = (n * xysum - xsum * ysum) / (n * x2sum - xsum * xsum);     // calculate slope
       b = (x2sum * ysum - xsum * xysum) / (x2sum * n - xsum * xsum); // calculate intercept
