@@ -43,11 +43,6 @@ bool BluetoothUI::checkTimers(){
         return false;
     }
 
-    //close time is bigger than open time
-    if(secondValveEnable && ((secondValveOpenTime > secondValveCloseTime) && (secondValveCloseTime != 0))){ 
-        return false;
-    }
-
     return true;
 }
 

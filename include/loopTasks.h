@@ -10,5 +10,6 @@ void dataTask(void *arg);
 void sdTask(void *arg);
 void staticFireTask(void *arg);
 void calibrationTask(void *arg);
+void timeServoOpen(void *arg);
 
 #endif

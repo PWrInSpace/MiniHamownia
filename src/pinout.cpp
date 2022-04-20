@@ -14,7 +14,7 @@ void beepBoop(int time, int howManyTimes){
 // reverseDividerVal = (R1 + R2) / R2
 float checkBattery(uint8_t batteryPin, const float &reverseDividerVal)
 {
-    return (analogRead(batteryPin) / 4095) * 3.3 * reverseDividerVal;
+    return (analogRead(batteryPin) / 4095.0   ) * 3.3 * reverseDividerVal * 8.0 / 7.0;
 }
 
 void pinInit()

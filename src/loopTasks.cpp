@@ -132,11 +132,6 @@ void uiTask(void *arg)
             servo.write(SERVO_OPEN_POSITION);
             btTx = "Servo open";
           }
-          else if (command[2] == '2')
-          {
-            xTaskCreatePinnedToCore(openSecondValve, "second Val open", 2048, NULL, 2, NULL, APP_CPU_NUM);
-            btTx = "Second valve open";
-          }
           else
           {
             btTx = "Unknown valve number";
@@ -150,11 +145,6 @@ void uiTask(void *arg)
             servo.write(SERVO_CLOSE_POSITION);
             btTx = "Servo closed";
           }
-          else if (command[2] == '2')
-          {
-            xTaskCreatePinnedToCore(closeSecondValve, "second Val close", 2048, NULL, 2, NULL, APP_CPU_NUM);
-            btTx = "Second valve closed";
-          }
           else
           {
             btTx = "Unknown valve number";
@@ -164,14 +154,8 @@ void uiTask(void *arg)
         {
           if (command[2] == '1')
           {
-            servo.write(time);
-            // xTaskCreatePinnedToCore(timeOpenFirstValve, "First val time open", 2048, (void *)&time, 2, NULL, APP_CPU_NUM); // i think it won't work xDD
-            btTx = "Servo move: " + String(time);
-          }
-          else if (command[2] == '2')
-          {
-            xTaskCreatePinnedToCore(timeOpenSecondValve, "Second val time open", 2048, (void *)&time, 2, NULL, APP_CPU_NUM);
-            btTx = "First valve open for " + String(time);
+            xTaskCreatePinnedToCore(timeServoOpen, "Serwo time open", 2048, (void *)&time, 2, NULL, APP_CPU_NUM); // i think it won't work xDD
+            btTx = "Servo time open: " + String(time);
           }
           else
           {
@@ -236,7 +220,8 @@ void uiTask(void *arg)
         else if (command == "JP2;")
         {
           btUI.setCalibrationFactor(time, SECOND_LOAD_CELL); // value not time :D
-          btTx = "New calibration factor:  " + String(btUI.getCalibrationFactor(SECOND_LOAD_CELL));
+          btTx = "OO PANIE TO TY ...";
+          btTx += "New calibration factor:  " + String(btUI.getCalibrationFactor(SECOND_LOAD_CELL));
         }
         else if (command == "JP3;")
         {
@@ -481,7 +466,7 @@ void stateTask(void *arg)
 void dataTask(void *arg)
 {
   String dataFrame;
-  // float revDividerVal = (10000.0 + 47000.0)/10000.0;
+  float revDividerVal = (10000.0 + 47000.0)/10000.0;
   HX711_ADC mainLoadCell(LC1_DT, LC1_CLK);
   uint16_t stabilizingTime = 2000;
   bool _tare = true;
@@ -507,7 +492,7 @@ void dataTask(void *arg)
   // ^for full hardware
   vTaskDelay(1000 / portTICK_PERIOD_MS);
 
-  // dataFrame = "TIME; THRUST; PRESSURE; VALVE_1 STATE; VALVE_2 STATE;";
+  dataFrame = "TIME; THRUST; PRESSURE; VALVE_1 STATE; VALVE_2 STATE; IGNITER; BATTERY;";
   // xQueueSend(sm.sdQueue, (void *)&dataFrame, 10);
 
   while (1)
@@ -551,9 +536,9 @@ void dataTask(void *arg)
       }
       else
       {
-        dataFrame += "Nie ma ciaglosci";
+        dataFrame += "Nie ma ciaglosci; ";
       }
-      // dataFrame += checkBattery(BATT_CHECK, revDividerVal);
+      dataFrame += checkBattery(BATT_CHECK, revDividerVal);
       dataFrame += "\n";
 
       if (sm.timer.isEnable())
@@ -578,7 +563,7 @@ void dataTask(void *arg)
 void sdTask(void *arg)
 {
   SDCard sd(myspi, SD_CS);
-  String header = "TIME; THRUST; PRESSURE; VALVE_1 STATE; VALVE_2 STATE;\n";
+  String header = "TIME; THRUST; PRESSURE; VALVE_1 STATE; VALVE_2 STATE; IGNITER; \n";
   String data = "";
   uint16_t i = 0;
 
@@ -917,5 +902,15 @@ void calibrationTask(void *arg)
     sm.changeState(IDLE);
   }
   sm.calibrationTask = NULL;
+  vTaskDelete(NULL);
+}
+
+void timeServoOpen(void *arg){
+  int time = *((int*)arg);
+  
+  servo.write(SERVO_OPEN_POSITION);
+  vTaskDelay(time / portTICK_PERIOD_MS);
+  servo.write(SERVO_CLOSE_POSITION);
+
   vTaskDelete(NULL);
 }
