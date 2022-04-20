@@ -509,7 +509,7 @@ void dataTask(void *arg)
 
   while (oxidizerLoadCell.getTareTimeoutFlag())
   {
-    dataFrame = "oxidizer Load Cell Disconnected!";
+    dataFrame = "Oxidizer Load Cell Disconnected!";
     xQueueSend(sm.btTxQueue, (void *)&dataFrame, 10);
     vTaskDelay(1000 / portTICK_PERIOD_MS);
   }
@@ -517,8 +517,6 @@ void dataTask(void *arg)
   oxidizerLoadCell.setCalFactor(btUI.getCalibrationFactor(1));
   oxidizerLoadCell.setSamplesInUse(1);
 
-  // data = "TIME; THRUST; OXIDANT_WEIGHT; PRESSURE; TEMP_1; TEMP_2; VALVE_1 STATE; VALVE_2 STATE; BATTERY;";
-  // ^for full hardware
   vTaskDelay(1000 / portTICK_PERIOD_MS);
 
   dataFrame = "TIME; THRUST; OXIDANT_WEIGHT; PRESSURE; TEMP_1; TEMP_2; VALVE_1 STATE; VALVE_2 STATE; BATTERY;";
@@ -526,7 +524,6 @@ void dataTask(void *arg)
 
   while (1)
   {
-    // czas testu możesz dostać z sm.timer.getTime();
     dataFrame = "";
 
     dataFrame += String(sm.timer.getTime()) + "; ";
@@ -567,7 +564,8 @@ void dataTask(void *arg)
         xQueueSend(sm.btTxQueue, (void *)&dataFrame, 10);
         iter = 0;
       }
-      Serial.println(dataFrame);
+      // DEBUG only
+      //Serial.println(dataFrame);
       iter++;
     }
 
@@ -847,6 +845,11 @@ void calibrationTask(void *arg)
             {
               btMsg = "ERROR: Type MH;TAR; to tare the load cell";
             }
+            xQueueSend(sm.btTxQueue, (void *)&btMsg, 10);
+          }
+          else
+          {
+            btMsg = "ERROR: Unknown command";
             xQueueSend(sm.btTxQueue, (void *)&btMsg, 10);
           }
           if (xQueueReceive(sm.btRxQueue, (void *)&btMsg, portMAX_DELAY) == pdTRUE)
