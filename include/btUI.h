@@ -25,9 +25,9 @@ class BluetoothUI
     BluetoothSerial BTSerial;
     bool btDataFlag;
     bool btCheckCalibrationFlag;
+    bool btTareFlag;
 
 public:
-    bool tareFlag;
     BluetoothUI() = default;
     void begin(String name = "rozkurwiacz"); // read from flash
 
@@ -49,6 +49,8 @@ public:
     bool switchDataFlag();
     bool checkCalibrationFactorsFlag();
     bool switchCalibrationFactorsFlag();
+    bool checkTareFlag();
+    bool switchTareFlag();
     void println(const String &message);
     bool isConnected();
     String timersDescription();

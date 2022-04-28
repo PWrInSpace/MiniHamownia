@@ -1,264 +1,111 @@
 #include "../../../include/tasks/loopTasks.h"
 
-void uiTask(void *arg)
-{
-  String btMsg;
-  String prefix = "MH;"; // prefix
-  String command;
-  uint32_t time;
-  String btTx;
-  TickType_t askTime = 0;
-  TickType_t askTimeOut = 30000;
 
+void stateTask(void *arg)
+{
+  String stateMsg;
   while (1)
   {
-    if (xQueueReceive(sm.btRxQueue, (void *)&btMsg, 1000) == pdTRUE)
+    if (ulTaskNotifyTake(pdTRUE, portMAX_DELAY) == pdTRUE)
     {
-      if (sm.state == COUNTDOWN)
-      { // message in countdown state
-
-        sm.changeState(ABORT);
-
-        // frame check
-      }
-      else if (checkCommand(btMsg, prefix, ';', 2) && (sm.state == IDLE))
+      // critical section begin
+      portENTER_CRITICAL(&sm.spinlock);
+      switch (sm.state)
       {
-        btMsg.remove(0, prefix.length());  // remove MH; prefix
-        command = btMsg.substring(0, 4);   // get command
-        time = btMsg.substring(4).toInt(); // get timer ms
+      case DISCONNECTED:
+        vTaskSuspend(sm.uiTask);
+        // vTaskSuspend(sm.dataTask);
 
-        // valve open timer
-        if (command == "MO1;" || command == "MO2;")
-        {
-          if (command[2] == '1')
-          {
-            xTaskCreatePinnedToCore(openFirstValve, "First Val open", 2048, NULL, 2, NULL, APP_CPU_NUM);
-            btTx = "First valve open";
-          }
-          else if (command[2] == '2')
-          {
-            xTaskCreatePinnedToCore(openSecondValve, "second Val open", 2048, NULL, 2, NULL, APP_CPU_NUM);
-            btTx = "Second valve open";
-          }
-          else
-          {
-            btTx = "Unknown valve number";
-          }
-        }
-        else if (command == "MC1;" || command == "MC2;")
-        {
-          if (command[2] == '1')
-          {
-            xTaskCreatePinnedToCore(closeFirstValve, "First Val close", 2048, NULL, 2, NULL, APP_CPU_NUM);
-            btTx = "First valve closed";
-          }
-          else if (command[2] == '2')
-          {
-            xTaskCreatePinnedToCore(closeSecondValve, "second Val close", 2048, NULL, 2, NULL, APP_CPU_NUM);
-            btTx = "Second valve closed";
-          }
-          else
-          {
-            btTx = "Unknown valve number";
-          }
-        }
-        else if (command == "TO1;" || command == "TO2;")
-        {
-          if (command[2] == '1')
-          {
-            xTaskCreatePinnedToCore(timeOpenFirstValve, "First val time open", 2048, (void *)&time, 2, NULL, APP_CPU_NUM); // i think it won't work xDD
-            btTx = "First valve open for " + String(time);
-          }
-          else if (command[2] == '2')
-          {
-            xTaskCreatePinnedToCore(timeOpenSecondValve, "Second val time open", 2048, (void *)&time, 2, NULL, APP_CPU_NUM);
-            btTx = "First valve open for " + String(time);
-          }
-          else
-          {
-            btTx = "Unknown valve number";
-          }
-        }
-        else if (command == "VO1;" || command == "VO2;")
-        {
-          if (btUI.setValveOpenTimer(time, command[2] - 48))
-          {
-            btTx = "Valve " + String(command[2] - 48) + " New open time: " + String(btUI.getValveOpenTimer(command[2] - 48));
-          }
-          else
-          {
-            btTx = "Failed to save";
-          }
+        // disable for Seba i Krzysiek
+        // abort after disconnect
+        // sm.timer.setDefault();
+        /*
+        if(sm.staticFireTask != NULL){
+            vTaskDelete(sm.staticFireTask);
+            sm.staticFireTask = NULL;
+        }*/
 
-          // valve close timer
-        }
-        else if (command == "VC1;" || command == "VC2;")
-        {
-          if (btUI.setValveCloseTimer(time, command[2] - 48))
-          {
-            btTx = "Valve " + String(command[2] - 48) + " New close time: " + String(btUI.getValveCloseTimer(command[2] - 48));
-          }
-          else
-          {
-            btTx = "Failed to save";
-          }
+        break;
 
-          // valve enable
-        }
-        else if (command == "VE1;" || command == "VE2;")
-        {
-          if (btUI.setValveState(time, command[2] - 48))
-          {
-            btTx = "Valve " + String(command[2] - 48) + (btUI.getValveState(command[2] - 48) > 0 ? " enable" : " disable");
-          }
-          else
-          {
-            btTx = "Failed to save";
-          }
+      case IDLE:
+        // resume suspended tasks
+        sm.timer.setDefault();
+        vTaskResume(sm.uiTask);
+        vTaskResume(sm.dataTask);
 
-          // count down timer
-        }
-        else if (command == "CDT;")
+        if (sm.calibrationTask != NULL)
         {
-          if (btUI.setCountDownTime(time))
+          if (eTaskGetState(sm.calibrationTask) != eDeleted)
           {
-            btTx = "New countdown time:  " + String(btUI.getCountDownTime());
+            vTaskDelete(sm.calibrationTask);
           }
-          else
-          {
-            btTx = "Failed to save";
-          }
+          sm.calibrationTask = NULL;
         }
-        else if (command == "JP1;")
-        {
-          btUI.setCalibrationFactor(time, FIRST_LOAD_CELL); // value not time :D
-          btTx = "New calibration factor:  " + String(btUI.getCalibrationFactor(FIRST_LOAD_CELL));
-        }
-        else if (command == "JP2;")
-        {
-          btUI.setCalibrationFactor(time, SECOND_LOAD_CELL); // value not time :D
-          btTx = "New calibration factor:  " + String(btUI.getCalibrationFactor(SECOND_LOAD_CELL));
-        }
-        else if (command == "JP3;")
-        {
-          btUI.setPressureSensCalibrationFactor(time); // value not time :)
-          btTx = "New pressure sens calibration factor:  " + String(btUI.getPressureSensCalibrationFactor());
-        }
-        else if (command == "LC1;" || command == "LC2;" || command == "PSC;")
-        {
-          if (xQueueSend(sm.btRxQueue, (void *)&command, 0) == pdTRUE)
-          {
-            sm.changeState(CALIBRATION);
 
-            vTaskSuspend(NULL); // double suspend check
-            btTx = "Calibration end";
-          }
-          else
-          {
-            btTx = "Couldn't start calibration";
-          }
+        stateMsg = "State: IDLE";
+        break;
 
-          // save to flash
-        }
-        else if (command == "WCS;")
-        {
-          btUI.saveToFlash();
+      case CALIBRATION:
+        vTaskDelay(10 / portTICK_PERIOD_MS);
+        vTaskSuspend(sm.uiTask);   // calibration task will handle ui
+        vTaskSuspend(sm.dataTask); // calibration task need only data from load cell
 
-          btTx = "Saved to flash";
-          btUI.switchCalibrationFactorsFlag();
-          // show current setings
-        }
-        else if (command == "SCS;")
-        {
-          btTx = btUI.timersDescription();
+        xTaskCreatePinnedToCore(calibrationTask, "calibration task", 10000, NULL, 2, &sm.calibrationTask, APP_CPU_NUM);
 
-          // enable/disable data frame to user
-        }
-        else if (command == "SDF;")
+        if (sm.calibrationTask == NULL)
         {
-          btTx = "Data frame "; // enable / disable
-          // set flag btTxFlag
-
-          // start static fire task
-        }
-        else if (command == "SFS;")
-        {
-          // Igniter continuity check
-          if (analogRead(CONTINUITY) > 512)
-          {
-            if (btUI.checkTimers())
-            {                                                     // check timers
-              askTime = xTaskGetTickCount() * portTICK_PERIOD_MS; // start timer
-              btTx = btUI.timersDescription();                    // show timers
-
-              btTx += "\n\nDo you want to start test with this settings? Write MH;SFY;"; // ask
-            }
-            else
-            {
-              btTx = "Invalid valve setings";
-            }
-          }
-          else
-          {
-            askTime = 0;
-            btTx = "Lack of igniter continuity! :C";
-          }
-
-          //
-        }
-        else if (command == "SFY;")
-        {
-          if (askTime == 0)
-          {
-            btTx = "Unknown command";
-          }
-          else if ((xTaskGetTickCount() * portTICK_PERIOD_MS) - askTime < askTimeOut)
-          {
-            btUI.saveToFlash();
-            btTx = "create static fire task";
-            askTime = 0;
-            sm.changeState(COUNTDOWN);
-          }
-          else
-          {
-            btTx = "Static fire ask time out!";
-            askTime = 0;
-          }
-
-          // turn off esp
-        }
-        else if (command == "RST;")
-        {
-          btTx = "Esp is going to sleep";
-        }
-        else if (command == "BTF;")
-        {
-          if (btUI.switchDataFlag())
-            btTx = "Switched BT Data Flag";
-          else
-          {
-            btTx = "ERROR: cannot switch BT Data Flag";
-          }
+          stateMsg = "Beep boop error, calibrationTask not created";
+          vTaskResume(sm.uiTask);
+          vTaskResume(sm.dataTask);
+          sm.changeState(IDLE);
         }
         else
         {
-          btTx = "Unknown command";
+          stateMsg = "State: CALIBRATION";
         }
 
-        if (command != "SFS;" && askTime != 0)
+        break;
+
+      case COUNTDOWN:
+        xTaskCreatePinnedToCore(staticFireTask, "static fire task", 10000, NULL, 3, &sm.staticFireTask, APP_CPU_NUM);
+
+        if (sm.staticFireTask == NULL)
         {
-          askTime = 0;
+          stateMsg = "Beep boop error, staticFireTask not created";
+          sm.changeState(IDLE);
+        }
+        else
+        {
+          stateMsg = "State: COUNTDOWN";
         }
 
-        xQueueSend(sm.btTxQueue, (void *)&btTx, 10);
+        break;
+      case STATIC_FIRE:
+        stateMsg = "State: STATIC_FIRE";
+        break;
+      case ABORT:
+        if (sm.staticFireTask != NULL)
+        {
+          vTaskDelete(sm.staticFireTask);
+          sm.staticFireTask = NULL;
+        }
+        // close valve or sth
+        digitalWrite(IGNITER, LOW);
+        sm.timer.setDefault();
+        stateMsg = "State: ABORT";
+        break;
       }
-      else
+
+      // critical section end
+      portEXIT_CRITICAL(&sm.spinlock);
+
+      // state info for user
+      if (sm.state != DISCONNECTED)
       {
-        btTx = "Unknown command or not IDLE state";
-        xQueueSend(sm.btTxQueue, (void *)&btTx, 10);
+        xQueueSend(sm.btTxQueue, (void *)&stateMsg, 0);
       }
     }
-
     vTaskDelay(10 / portTICK_PERIOD_MS);
   }
 }
+

@@ -70,6 +70,12 @@ void dataTask(void *arg)
       btUI.switchCalibrationFactorsFlag();
     }
 
+    if(btUI.checkTareFlag())
+    {
+      mainLoadCell.tareNoDelay();
+      btUI.switchTareFlag();
+    }
+
     if (mainLoadCell.update() == 1 || oxidizerLoadCell.update() == 1)
     {
       dataFrame += String(mainLoadCell.getData()) + "; ";
@@ -106,7 +112,3 @@ void dataTask(void *arg)
     vTaskDelay(50 / portTICK_PERIOD_MS);
   }
 }
-
-
-
-

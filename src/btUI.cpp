@@ -2,7 +2,6 @@
 
 void BluetoothUI::begin(String name){
     BTSerial.begin(name);
-    tareFlag = 0;
     EEPROM.begin(DATA_SIZE);
     this->readFlash();
 }
@@ -68,6 +67,19 @@ bool BluetoothUI::switchCalibrationFactorsFlag()
 { 
     this->btCheckCalibrationFlag = !this->btCheckCalibrationFlag;
     if(this->btCheckCalibrationFlag)
+        return true;
+    return false;
+}
+
+bool BluetoothUI::checkTareFlag()
+{
+    return this->btTareFlag;
+}
+
+bool BluetoothUI::switchTareFlag()
+{ 
+    this->btTareFlag = !this->btTareFlag;
+    if(this->btTareFlag)
         return true;
     return false;
 }

@@ -26,8 +26,7 @@ void setup()
 
     myspi.begin(SCK, MISO, MOSI);
     
-    pinInit();
-    
+    pinInit();    
 
     myspi.begin(SCK, MISO, MOSI);
     myspi.setClockDivider(SPI_CLOCK_DIV2);

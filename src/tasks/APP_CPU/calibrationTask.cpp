@@ -1,6 +1,6 @@
 #include "../../../include/tasks/loopTasks.h"
 
-void calibrationTask(void *arg)
+void cellcalibrationTask(void *arg)
 {
   /*
   if (eTaskGetState(sm.uiTask) == eSuspended)
