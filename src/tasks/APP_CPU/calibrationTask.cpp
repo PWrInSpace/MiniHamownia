@@ -56,8 +56,8 @@ void calibrationTask(void *arg)
 
       while (i < n)
       {
-        //Serial.println(xPortGetFreeHeapSize());
-        btMsg = "Measurement " + String(i+1) + ". Type MH;TAR; to tare, the known weight";
+        // Serial.println(xPortGetFreeHeapSize());
+        btMsg = "Measurement " + String(i + 1) + ". Type MH;TAR; to tare, the known weight";
         xQueueSend(sm.btTxQueue, (void *)&btMsg, 10);
         vTaskDelay(10 / portTICK_PERIOD_MS);
 
@@ -118,11 +118,11 @@ void calibrationTask(void *arg)
         }
       }
 
-      for(j=0; j < n; j++)
+      for (j = 0; j < n; j++)
       {
         btMsg += String(massVsMeasured[0][j]) + " " + String(massVsMeasured[1][j]) + " ";
       }
-      
+
       xQueueSend(sm.btTxQueue, (void *)&btMsg, 10);
       float xsum = 0, x2sum = 0, ysum = 0, xysum = 0, a, b; // variables for sums/sigma of xi,yi,xi^2,xiyi etc
       for (j = 0; j < n; j++)
@@ -134,7 +134,7 @@ void calibrationTask(void *arg)
       }
       a = (n * xysum - xsum * ysum) / (n * x2sum - xsum * xsum);     // calculate slope
       b = (x2sum * ysum - xsum * xysum) / (x2sum * n - xsum * xsum); // calculate intercept
-      btMsg = "Calibration factor has been calculated and equals " + String(a) + " constant term equals " + String(b) + "\nSave to flash? (Y/N)";
+      btMsg = "Calibration factor has been calculated and equals " + String(a) + " constant term equals " + String(b) + ". Save to flash? (Y/N)";
       xQueueSend(sm.btTxQueue, (void *)&btMsg, 10);
       if (xQueueReceive(sm.btRxQueue, (void *)&btMsg, portMAX_DELAY) == pdTRUE)
       {
@@ -154,15 +154,41 @@ void calibrationTask(void *arg)
     }
     else if (btMsg == "PSC;")
     {
+      Trafag8252 pressureSens(PRESS_SENS, 1.0);
+      btMsg = "Type pressure value in Bar (float)";
+      xQueueSend(sm.btTxQueue, (void *)&btMsg, 50);
 
-      btMsg = "Type MH;";
+      if (xQueueReceive(sm.btRxQueue, (void *)&btMsg, portMAX_DELAY) == pdTRUE)
+      {
+        if (btMsg.toFloat())
+        {
+          pressure = btMsg.toFloat();
+        }
+        float newCalibrationVal = pressureSens.sensorCalibration(pressure);
+        btMsg = "New calibration value is " + String(newCalibrationVal) + ". Save to flash? (Y/N)";
+        xQueueSend(sm.btTxQueue, (void *)&btMsg, 10);
+        if (xQueueReceive(sm.btRxQueue, (void *)&btMsg, portMAX_DELAY) == pdTRUE)
+        {
+          if (btMsg.equalsIgnoreCase("Y"))
+          {
+            btUI.setPressureSensCalibrationFactor((uint16_t)newCalibrationVal);
+            btUI.saveToFlash();
+            btMsg = "Saved value to flash";
+          }
+          else
+          {
+            btMsg = "Did not save to flash";
+          }
+          xQueueSend(sm.btTxQueue, (void *)&btMsg, 10);
+        }
+      }
     }
-  }
 
-  if (sm.state != DISCONNECTED)
-  {
-    sm.changeState(IDLE);
+    if (sm.state != DISCONNECTED)
+    {
+      sm.changeState(IDLE);
+    }
+    sm.calibrationTask = NULL;
+    vTaskDelete(NULL);
   }
-  sm.calibrationTask = NULL;
-  vTaskDelete(NULL);
 }
