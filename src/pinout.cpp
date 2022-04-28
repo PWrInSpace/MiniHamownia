@@ -27,3 +27,4 @@ void pinInit()
     pinMode(BATT_CHECK, INPUT);
     //
 }
+

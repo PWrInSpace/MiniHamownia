@@ -2,6 +2,7 @@
 
 void BluetoothUI::begin(String name){
     BTSerial.begin(name);
+    tareFlag = 0;
     EEPROM.begin(DATA_SIZE);
     this->readFlash();
 }
@@ -39,11 +40,6 @@ bool BluetoothUI::checkTimers(){
 
     //check if open close time is bigger than open time
     if(firstValveEnable && ((firstValveOpenTime > firstValveCloseTime) && (firstValveCloseTime != 0))){ 
-        return false;
-    }
-
-    //close time is bigger than open time
-    if(secondValveEnable && ((secondValveOpenTime > secondValveCloseTime) && (secondValveCloseTime != 0))){ 
         return false;
     }
 
@@ -86,12 +82,12 @@ String BluetoothUI::timersDescription(){
     timersMsg += firstValveEnable > 0 ? "Enable" : "Disable";
     timersMsg += "\nOpen time: " + String(firstValveOpenTime) + "\n";
     timersMsg += "Close time: " + String(firstValveCloseTime) + "\n\n";
-    
+    /*
     timersMsg += "Valve 2: ";
     timersMsg += secondValveEnable > 0 ? "Enable" : "Disable";
     timersMsg += "\nOpen time: " + String(secondValveOpenTime) + "\n";
     timersMsg += "Close time: " + String(secondValveCloseTime);
-
+    */
     return timersMsg;
 }
 

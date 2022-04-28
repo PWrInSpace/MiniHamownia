@@ -6,11 +6,14 @@
 #include "DCValve.h"
 #include "pinout.h"
 #include <SPI.h>
+#include "ESP32Servo.h"
 
 BluetoothUI btUI;
 StateMachine sm;
 extern DCValve firstValve;
 extern DCValve secondValve;
+Servo servo;
+
 SPIClass myspi(HSPI);
 
 void setup()
@@ -22,6 +25,15 @@ void setup()
     
     pinInit();
     
+    ESP32PWM::allocateTimer(0);
+    ESP32PWM::allocateTimer(1);
+    ESP32PWM::allocateTimer(2);
+    ESP32PWM::allocateTimer(3);
+    servo.setPeriodHertz(50);
+    servo.attach(SERVO_PIN, 500, 2400);
+
+    servo.write(SERVO_CLOSE_POSITION);
+
     myspi.begin(SCK, MISO, MOSI);
     myspi.setClockDivider(SPI_CLOCK_DIV2);
 

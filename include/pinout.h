@@ -44,6 +44,13 @@
 // BATTERY
 #define BATT_CHECK 39   
 
+<<<<<<< HEAD
+=======
+// SERVO
+#define SERVO_OPEN_POSITION 17
+#define SERVO_CLOSE_POSITION 105
+#define SERVO_PIN 27
+>>>>>>> serwo
 
 // VALVE STATES
 #define VALVE_OPEN 2
