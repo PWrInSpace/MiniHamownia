@@ -755,11 +755,11 @@ void calibrationTask(void *arg)
   String btMsg;
   String prefix = "MH;";
   String command;
-  float measuredVal = 0.0;
+  float measuredCal = 0.0;
   float mass = 0.0;
   float pressure = 0.0;
   uint8_t n = 3;
-  float massVsMeasured[2][n];
+  float massVsCalibration[2][n];
   uint8_t i = 0, j = 0;
 
   bool newDataReady = false;
@@ -827,12 +827,12 @@ void calibrationTask(void *arg)
                 newDataReady = true;
               if (newDataReady)
               {
-                measuredVal = LoadCell.getData();
-                if (measuredVal != 0.0)
+                measuredCal = LoadCell.getNewCalibration(mass);
+                if (measuredCal != 0.0)
                 {
-                  btMsg = "Measured value is " + String(measuredVal);
-                  massVsMeasured[0][i] = mass;
-                  massVsMeasured[1][i] = measuredVal;
+                  btMsg = "Measured value is " + String(measuredCal);
+                  massVsCalibration[0][i] = mass;
+                  massVsCalibration[1][i] = measuredCal;
                   i++;
                 }
                 else
@@ -858,17 +858,17 @@ void calibrationTask(void *arg)
 
       for (j = 0; j < n; j++)
       {
-        btMsg += String(massVsMeasured[0][j]) + " " + String(massVsMeasured[1][j]) + " ";
+        btMsg += String(massVsCalibration[0][j]) + " " + String(massVsCalibration[1][j]) + " ";
       }
 
       xQueueSend(sm.btTxQueue, (void *)&btMsg, 10);
       float xsum = 0, x2sum = 0, ysum = 0, xysum = 0, a, b; // variables for sums/sigma of xi,yi,xi^2,xiyi etc
       for (j = 0; j < n; j++)
       {
-        xsum = xsum + massVsMeasured[0][j];                          // calculate sigma(xi)
-        ysum = ysum + massVsMeasured[1][j];                          // calculate sigma(yi)
-        x2sum = x2sum + massVsMeasured[0][j] * massVsMeasured[0][j]; // calculate sigma(x^2i)
-        xysum = xysum + massVsMeasured[0][j] * massVsMeasured[1][j]; // calculate sigma(xi*yi)
+        xsum = xsum + massVsCalibration[0][j];                          // calculate sigma(xi)
+        ysum = ysum + massVsCalibration[1][j];                          // calculate sigma(yi)
+        x2sum = x2sum + massVsCalibration[0][j] * massVsCalibration[0][j]; // calculate sigma(x^2i)
+        xysum = xysum + massVsCalibration[0][j] * massVsCalibration[1][j]; // calculate sigma(xi*yi)
       }
       a = (n * xysum - xsum * ysum) / (n * x2sum - xsum * xsum);     // calculate slope
       b = (x2sum * ysum - xsum * xysum) / (x2sum * n - xsum * xsum); // calculate intercept
