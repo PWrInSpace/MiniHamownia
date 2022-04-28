@@ -12,7 +12,7 @@
 #endif
 
 #include <stdlib.h>
-#include "max6675.h"
+#include "../include/hardware/max6675.h"
 #include <SPI.h>
 
 MAX6675::MAX6675(int8_t _SCLK, int8_t _CS, int8_t _MISO, double OFFSET)

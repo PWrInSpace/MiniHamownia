@@ -1,4 +1,4 @@
-#include "trafag8252.h"
+#include "../include/hardware/trafag8252.h"
 
 Trafag8252::Trafag8252(uint8_t _pressurePinADC, uint16_t _calibrationConstant) : 
     pressurePinADC(_pressurePinADC), 
