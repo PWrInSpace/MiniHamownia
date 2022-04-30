@@ -22,7 +22,7 @@ class MAX6675 {
    */
   MAX6675(int8_t _CS, double OFFSET = 0.0);
 
-  MAX6675(SPIClass &_spi, int8_t _CS, double OFFSET = 0.0);
+  MAX6675(SPIClass *_spi, int8_t _CS, double OFFSET = 0.0);
 
   /**
    * No initialization directly, only later
@@ -42,9 +42,9 @@ class MAX6675 {
   // For compatibility with older versions:
   double readFarenheit(void) { return readFahrenheit(); }
  private:
-  int8_t sclk, miso, cs;
+  int8_t sclk, miso, cs, mosi;
   double offset;
-  SPIClass spi;
+  SPIClass *spi;
   uint8_t spiread(void);
   bool hwSPI = false;
 };

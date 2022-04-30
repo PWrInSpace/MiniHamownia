@@ -7,11 +7,11 @@
 
 
 class SDCard{
-    SPIClass spi;
+    SPIClass *spi;
     uint8_t cs;
 
     public:
-    SDCard(SPIClass &_spi, uint8_t _cs);
+    SDCard(SPIClass *_spi, uint8_t _cs);
     bool init();
     bool write(String path, const String & data); 
     bool fileExists(String path);

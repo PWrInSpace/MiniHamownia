@@ -2,7 +2,7 @@
 
 void sdTask(void *arg)
 {
-  SDCard sd(myspi, SD_CS);
+  SDCard sd(&myspi, SD_CS);
   String header = "TIME; THRUST; PRESSURE; VALVE_1 STATE; VALVE_2 STATE;\n";
   String data = "";
   uint16_t i = 0;

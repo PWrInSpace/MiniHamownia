@@ -230,6 +230,7 @@ void uiTask(void *arg)
         else if (command == "RST;")
         {
           btTx = "Esp is going to sleep";
+          ESP.restart();
         }
         else if (command == "BTF;")
         {

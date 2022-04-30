@@ -1,7 +1,7 @@
 #include "../include/hardware/SDcard.h"
 
 
-SDCard::SDCard(SPIClass &_spi, uint8_t _cs):
+SDCard::SDCard(SPIClass *_spi, uint8_t _cs):
     spi(_spi),  cs(_cs){};
 
 bool SDCard::init(){
@@ -9,7 +9,7 @@ bool SDCard::init(){
     //spi.begin(sck, miso, mosi, cs);
     //SPI.setClockDivider(SPI_CLOCK_DIV2);
     
-    if(!SD.begin(cs, spi)){ //idk xD
+    if(!SD.begin(cs, *spi)){ //idk xD
         return false;
     }
 

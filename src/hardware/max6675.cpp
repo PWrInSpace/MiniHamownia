@@ -17,25 +17,22 @@
 
 MAX6675::MAX6675(int8_t _SCLK, int8_t _CS, int8_t _MISO, double OFFSET)
 {
-  spi = SPI;
+  spi = &SPI;
   begin(_SCLK, _CS, _MISO, OFFSET);
 }
 
 MAX6675::MAX6675(int8_t _CS, double OFFSET)
 {
-  spi = SPI;
+  spi = &SPI;
   begin(_CS, OFFSET);
 }
 
-MAX6675::MAX6675()
-{
-}
-
-MAX6675::MAX6675(SPIClass &_spi, int8_t _CS, double OFFSET)
+MAX6675::MAX6675(SPIClass *_spi, int8_t _CS, double OFFSET)
 {
   spi = _spi;
   miso = -1;
   sclk = -1;
+  mosi = -1;
   begin(_CS, OFFSET);
 }
 
@@ -46,6 +43,7 @@ void MAX6675::begin(int8_t _SCLK, int8_t _CS, int8_t _MISO, double OFFSET)
   sclk = _SCLK;
   cs = _CS;
   miso = _MISO;
+  mosi = -1;
 
   // define pin modes
   pinMode(cs, OUTPUT);
@@ -63,7 +61,7 @@ void MAX6675::begin(int8_t _CS, double OFFSET)
   // define pin modes
   pinMode(cs, OUTPUT);
   digitalWrite(cs, HIGH);
-  spi.begin();
+  (*spi).begin();
 }
 
 double MAX6675::readCelsius(void)
@@ -82,7 +80,7 @@ double MAX6675::readCelsius(void)
     uint8_t oldSPCR = SPCR;
     SPCR |= 3; // As slow as possible (clock/128 or clock/64 depending on SPI2X)
 #endif         // MAX6675_LIBRARY_HW_SLOWDOWN
-    v = spi.transfer16(0);
+    v = (*spi).transfer16(0);
 #ifdef MAX6675_LIBRARY_HW_SLOWDOWN
     SPCR = oldSPCR;
 #endif // MAX6675_LIBRARY_HW_SLOWDOWN
@@ -133,7 +131,7 @@ byte MAX6675::spiread(void)
   for (i = 7; i >= 0; i--)
   {
     digitalWrite(sclk, LOW);
-    delayMicroseconds(1000);
+    delayMicroseconds(10);
     if (digitalRead(miso))
     {
       // set the bit to 0 no matter what
@@ -141,7 +139,7 @@ byte MAX6675::spiread(void)
     }
 
     digitalWrite(sclk, HIGH);
-    delayMicroseconds(1000);
+    delayMicroseconds(10);
   }
 
   return d;

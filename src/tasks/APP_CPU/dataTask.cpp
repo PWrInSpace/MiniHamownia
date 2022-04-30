@@ -17,13 +17,16 @@ void dataTask(void *arg)
 
   // Thermocouples
   xSemaphoreTake(sm.spiMutex, portMAX_DELAY);
-  MAX6675 firstThermo(myspi, THERMO1_CS);
-  MAX6675 secondThermo(myspi, THERMO2_CS);
+  MAX6675 firstThermo(&myspi, THERMO1_CS);
+  MAX6675 secondThermo(&myspi, THERMO2_CS);
   xSemaphoreGive(sm.spiMutex);
 
   // Main Load Cell
   mainLoadCell.begin();
   mainLoadCell.start(stabilizingTime, _tare);
+
+  // Igniter continuity
+  bool continuity = 0;
 
   while (mainLoadCell.getTareTimeoutFlag())
   {
@@ -53,7 +56,7 @@ void dataTask(void *arg)
   // ^for full hardware
   vTaskDelay(1000 / portTICK_PERIOD_MS);
 
-  dataFrame = "TIME; THRUST; OXIDANT_WEIGHT; PRESSURE; TEMP_1; TEMP_2; VALVE_1 STATE; VALVE_2 STATE; BATTERY;";
+  dataFrame = "TIME; THRUST; OXIDANT_WEIGHT; CONTINUITY; PRESSURE; TEMP_1; TEMP_2; VALVE_1 STATE; VALVE_2 STATE; BATTERY;";
   xQueueSend(sm.sdQueue, (void *)&dataFrame, 10);
 
   while (1)
@@ -70,7 +73,7 @@ void dataTask(void *arg)
       btUI.switchCalibrationFactorsFlag();
     }
 
-    if(btUI.checkTareFlag())
+    if (btUI.checkTareFlag())
     {
       mainLoadCell.tareNoDelay();
       btUI.switchTareFlag();
@@ -81,7 +84,14 @@ void dataTask(void *arg)
       dataFrame += String(mainLoadCell.getData()) + "; ";
       dataFrame += String(oxidizerLoadCell.getData()) + "; ";
       dataFrame += String(pressureSens.getPressure()) + "; ";
-
+      if(analogRead(CONTINUITY) > 512)
+      {
+        dataFrame += "Continuity; ";
+      }
+      else
+      {
+        dataFrame += "No Continuity; ";
+      }
       xSemaphoreTake(sm.spiMutex, portMAX_DELAY);
 
       dataFrame += String(firstThermo.readCelsius()) + "; ";
@@ -99,11 +109,26 @@ void dataTask(void *arg)
       { // timer is enable only in COUNTDOWN AND STATIC_FIRE STATE
         xQueueSend(sm.sdQueue, (void *)&dataFrame, 10);
       }
+      
 
       if (btUI.checkDataFlag() && iter == 10)
       {
         xQueueSend(sm.btTxQueue, (void *)&dataFrame, 10);
         iter = 0;
+      }
+
+      if(!sm.timer.isEnable())
+      { // BeepBoop when igniter continuity changes
+        if (!continuity && analogRead(CONTINUITY) > 512)
+        {
+          beepBoop(300, 3);
+          continuity = 1;
+        }
+        else if (continuity && analogRead(CONTINUITY) <= 512)
+        {
+          beepBoop(300, 3);
+          continuity = 0;
+        }
       }
       Serial.println(dataFrame);
       iter++;
