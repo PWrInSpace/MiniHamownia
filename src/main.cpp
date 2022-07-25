@@ -10,9 +10,8 @@
 #include "../include/tasks/loopTasks.h"
 #include "../include/hardware/DCValve.h"
 
-
-
 BluetoothUI btUI;
+
 StateMachine sm;
 extern DCValve firstValve;
 extern DCValve secondValve;
@@ -24,7 +23,7 @@ void setup()
     Serial.begin(115200);  //debug only
     vTaskDelay(1000 / portTICK_PERIOD_MS);
 
-    myspi.begin(SCK, MISO, MOSI);
+    //myspi.begin(SCK, MISO, MOSI);
     
     pinInit();    
 

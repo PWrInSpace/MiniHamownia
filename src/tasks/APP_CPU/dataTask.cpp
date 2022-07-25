@@ -2,7 +2,7 @@
 
 void dataTask(void *arg)
 {
-  String dataFrame;
+  String dataFrame, infoFrame;
   float revDividerVal = (10000.0 + 47000.0) / 10000.0;
 
   // Load Cells
@@ -73,10 +73,19 @@ void dataTask(void *arg)
       btUI.switchCalibrationFactorsFlag();
     }
 
-    if (btUI.checkTareFlag())
+    if (btUI.checkTareFlag(_mainLoadCell))
     {
       mainLoadCell.tareNoDelay();
-      btUI.switchTareFlag();
+      btUI.switchTareFlag(_mainLoadCell);
+      infoFrame = "Tared Main Load Cell";
+      xQueueSend(sm.btTxQueue, (void*) &infoFrame, 10);
+    }
+    if(btUI.checkTareFlag(_oxidizerLoadCell))
+    {
+      oxidizerLoadCell.tareNoDelay();
+      btUI.switchTareFlag(_oxidizerLoadCell);
+      infoFrame = "Tared Oxidizer Load Cell";
+      xQueueSend(sm.btTxQueue, (void*) &infoFrame, 10);
     }
 
     if (mainLoadCell.update() == 1 || oxidizerLoadCell.update() == 1)
@@ -134,6 +143,6 @@ void dataTask(void *arg)
       iter++;
     }
 
-    vTaskDelay(50 / portTICK_PERIOD_MS);
+    vTaskDelay(10 / portTICK_PERIOD_MS);
   }
 }

@@ -14,8 +14,8 @@
 // DC motors //
 #define DCIN1 25
 #define DCIN2 33
-#define LIM_SW_1 5 //closed
-#define LIM_SW_2 18 //open
+#define LIM_SW_1 5  // closed
+#define LIM_SW_2 18 // open
 #define DC_PWM1 0
 
 // PRESSURE SENS //
@@ -34,15 +34,15 @@
 #define LC1_DT 16
 #define LC1_CLK 17
 
-#define LC2_DT 35        
+#define LC2_DT 35
 #define LC2_CLK 32
 
 // THERMOCOUPLES
-#define THERMO1_CS 27   
+#define THERMO1_CS 27
 #define THERMO2_CS 26
 
 // BATTERY
-#define BATT_CHECK 39   
+#define BATT_CHECK 39
 
 // VALVE STATES
 #define VALVE_OPEN 2
@@ -52,5 +52,9 @@
 void beepBoop(int delay, int times);
 float checkBattery(uint8_t batteryPin, const float &reverseDividerVal);
 void pinInit();
-
+enum loadCells
+{
+    _mainLoadCell = 0,
+    _oxidizerLoadCell
+};
 #endif

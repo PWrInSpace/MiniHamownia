@@ -3,9 +3,11 @@
 
 #include "BluetoothSerial.h"
 #include "EEPROM.h"
+
 #define DATA_SIZE 26 // 26 bytes of class data
 #define FIRST_VALVE 1
 #define SECOND_VALVE 2
+
 #define FIRST_LOAD_CELL 1
 #define SECOND_LOAD_CELL 2
 
@@ -25,7 +27,7 @@ class BluetoothUI
     BluetoothSerial BTSerial;
     bool btDataFlag;
     bool btCheckCalibrationFlag;
-    bool btTareFlag;
+    bool btTareFlag[2];
 
 public:
     BluetoothUI() = default;
@@ -49,8 +51,8 @@ public:
     bool switchDataFlag();
     bool checkCalibrationFactorsFlag();
     bool switchCalibrationFactorsFlag();
-    bool checkTareFlag();
-    bool switchTareFlag();
+    bool checkTareFlag(bool cell);
+    bool switchTareFlag(bool cell);
     void println(const String &message);
     bool isConnected();
     String timersDescription();

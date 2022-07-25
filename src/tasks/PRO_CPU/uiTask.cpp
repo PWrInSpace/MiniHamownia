@@ -241,6 +241,16 @@ void uiTask(void *arg)
             btTx = "ERROR: cannot switch BT Data Flag";
           }
         }
+        else if(command == "TA1;")
+        {
+          btUI.switchTareFlag(_mainLoadCell);
+          btTx = "Taring main load cell...";
+        }
+        else if(command == "TA2;")
+        {
+          btUI.switchTareFlag(_oxidizerLoadCell);
+          btTx = "Taring oxidizer load cell...";
+        }
         else
         {
           btTx = "Unknown command";

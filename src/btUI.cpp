@@ -71,15 +71,15 @@ bool BluetoothUI::switchCalibrationFactorsFlag()
     return false;
 }
 
-bool BluetoothUI::checkTareFlag()
+bool BluetoothUI::checkTareFlag(bool cell)
 {
-    return this->btTareFlag;
+    return this->btTareFlag[cell];
 }
 
-bool BluetoothUI::switchTareFlag()
+bool BluetoothUI::switchTareFlag(bool cell)
 { 
-    this->btTareFlag = !this->btTareFlag;
-    if(this->btTareFlag)
+    this->btTareFlag[cell] = !this->btTareFlag[cell];
+    if(this->btTareFlag[cell])
         return true;
     return false;
 }
