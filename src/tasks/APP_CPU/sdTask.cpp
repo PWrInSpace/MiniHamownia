@@ -13,8 +13,10 @@ void sdTask(void *arg)
 
   while (!sd.init())
   {
+    digitalWrite(BUILTIN_LED, LOW);
     data = "Sd init error!";
     xQueueSend(sm.btTxQueue, (void *)&data, 10);
+    digitalWrite(BUILTIN_LED, HIGH);
     vTaskDelay(1000 / portTICK_PERIOD_MS);
   }
 

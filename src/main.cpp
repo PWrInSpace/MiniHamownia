@@ -49,8 +49,8 @@ void setup()
     sm.sdQueue   = xQueueCreate(SD_QUEUE_LENGTH, sizeof(String));
     
     xTaskCreatePinnedToCore(btReceiveTask,  "Bt rx task", 4096, NULL, 2, &sm.btRxTask, PRO_CPU_NUM);
-    xTaskCreatePinnedToCore(btTransmitTask, "Bt tx task", 4096, NULL, 1, &sm.btTxTask, PRO_CPU_NUM);
-    xTaskCreatePinnedToCore(uiTask,         "Ui task",    4096, NULL, 2, &sm.uiTask,   PRO_CPU_NUM);
+    xTaskCreatePinnedToCore(btTransmitTask, "Bt tx task", 4096, NULL, 2, &sm.btTxTask, PRO_CPU_NUM);
+    xTaskCreatePinnedToCore(uiTask,         "Ui task",    4096, NULL, 1, &sm.uiTask,   PRO_CPU_NUM);
 
     xTaskCreatePinnedToCore(stateTask,      "State task", 4096,  NULL, 3, &sm.stateTask, APP_CPU_NUM);
     xTaskCreatePinnedToCore(dataTask,       "data task",  8192, NULL, 2, &sm.dataTask,  APP_CPU_NUM);

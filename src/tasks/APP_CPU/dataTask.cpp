@@ -126,19 +126,19 @@ void dataTask(void *arg)
         iter = 0;
       }
 
-      if(!sm.timer.isEnable())
-      { // BeepBoop when igniter continuity changes
-        if (!continuity && analogRead(CONTINUITY) > 512)
-        {
-          beepBoop(300, 3);
-          continuity = 1;
-        }
-        else if (continuity && analogRead(CONTINUITY) <= 512)
-        {
-          beepBoop(300, 3);
-          continuity = 0;
-        }
-      }
+      // if(!sm.timer.isEnable())
+      // { // BeepBoop when igniter continuity changes
+      //   if (!continuity && analogRead(CONTINUITY) > 512)
+      //   {
+      //     beepBoop(300, 3);
+      //     continuity = 1;
+      //   }
+      //   else if (continuity && analogRead(CONTINUITY) <= 512)
+      //   {
+      //     beepBoop(300, 3);
+      //     continuity = 0;
+      //   }
+      // }
       Serial.println(dataFrame);
       iter++;
     }
