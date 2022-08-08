@@ -1,5 +1,8 @@
 #include "../../../include/tasks/loopTasks.h"
 
+constexpr uint8_t CAL_SAMPLES = 10;
+constexpr float DEFAULT_CAL = 100.0;
+
 void calibrationTask(void *arg)
 {
   /*
@@ -17,8 +20,8 @@ void calibrationTask(void *arg)
   String btMsg;
   String prefix = "MH;";
   String command;
-  float measuredVal = 0.0;
-  float mass = 0.0;
+  float measuredVal[CAL_SAMPLES];
+  float mass = 0.0, massSum = 0.0;
   float pressure = 0.0;
   uint8_t n = 3;
   uint8_t i = 0, j = 0;
@@ -52,7 +55,7 @@ void calibrationTask(void *arg)
         vTaskDelay(1000 / portTICK_PERIOD_MS);
       }
 
-      LoadCell.setCalFactor(1.0);
+      LoadCell.setCalFactor(DEFAULT_CAL);
       LoadCell.setSamplesInUse(10);
 
       btMsg = "Type in the weight in N (float)";
@@ -74,7 +77,24 @@ void calibrationTask(void *arg)
         }
       } while (!ifValid);
 
-      newCalFactor = LoadCell.getNewCalibration(mass);
+      for (i = 0; i < CAL_SAMPLES; ++i)
+      {
+        if (LoadCell.update() == 1)
+          measuredVal[i] = LoadCell.getData();
+        if (measuredVal[i] == 0)
+        {
+          i--;
+        }
+        else
+        {
+          btMsg = "Data no." + String(i) + " = " + String(measuredVal[i]);
+          xQueueSend(sm.btTxQueue, (void *)&btMsg, 10);
+          massSum += measuredVal[i];
+          vTaskDelay(100 / portTICK_PERIOD_MS);
+        }
+      }
+
+      newCalFactor = DEFAULT_CAL * massSum / ((float)CAL_SAMPLES) / mass;
 
       btMsg = "Do you want to save the new calibration value? > " + String(newCalFactor);
       xQueueSend(sm.btTxQueue, (void *)&btMsg, 10);

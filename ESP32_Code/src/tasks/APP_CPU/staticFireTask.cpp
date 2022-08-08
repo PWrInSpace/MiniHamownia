@@ -17,7 +17,7 @@ void staticFireTask(void *arg)
   bool igniterState = LOW;
   uint8_t bipTimes = 1;
   String msg;
-  float maxThrust = 0.0;
+  //float maxThrust = 0.0;
   vTaskDelay(1000 / portTICK_PERIOD_MS);
 
   // set timers
@@ -126,7 +126,7 @@ void staticFireTask(void *arg)
           msg = "LOG: Second valve open for: " + String(valveOpenTime);
           xQueueSend(sm.sdQueue, (void *)&msg, 0);
         }
-        if()
+        //if()
       }
     }
 

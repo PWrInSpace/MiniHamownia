@@ -123,7 +123,7 @@ void dataTask(void *arg)
       }
       
 
-      if (btUI.checkDataFlag() && iter == 100)
+      if (btUI.checkDataFlag() && iter == 10)
       {
         xQueueSend(sm.btTxQueue, (void *)&dataFrame, 10);
         iter = 0;
