@@ -25,4 +25,7 @@ TBD
 
 ## The main computing board
 
-TBD
+Below you can see the PCB layout and render of the main computing board for the module.
+
+![main_computing_board_PCB](docs/PCB_PCB_MiniHamownia_v2.png)
+![main_computing_board_3D](docs/minihamownia_pcb.png)
