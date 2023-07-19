@@ -1,7 +1,7 @@
 #ifndef DC_VALVE_HH
 #define DC_VALVE_HH
 
-#include <FreeRTOS.h>
+// #include <FreeRTOS.h>
 #include <Arduino.h>
 #include <stdint.h>
 #include "pinout.h"
@@ -31,17 +31,12 @@ class DCValve{
     String getPosition();
 };
 
-#ifdef MAIN_FREERTOS_H_
-
 void openFirstValve(void *arg);
 void openSecondValve(void *arg);
 void closeFirstValve(void *arg);
 void closeSecondValve(void *arg);
 void timeOpenFirstValve(void  *arg);
 void timeOpenSecondValve(void  *arg);
-
-#endif
-
 
 
 #endif

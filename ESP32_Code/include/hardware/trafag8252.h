@@ -1,7 +1,7 @@
 #ifndef TRAFAG_HH
 #define TRAFAG_HH
 
-#include <FreeRTOS.h>
+// #include <FreeRTOS.h>
 #include <Arduino.h>
 #include "pinout.h"
 

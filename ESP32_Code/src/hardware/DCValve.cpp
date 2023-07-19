@@ -100,7 +100,6 @@ String DCValve::getPosition()
     else return String("Valve moving");
 }
 
-#ifdef MAIN_FREERTOS_H_
 
 DCValve firstValve(DCIN1, DCIN2, DC_PWM1, LIM_SW_1, LIM_SW_2);
 DCValve secondValve(DCIN1, DCIN2, DC_PWM1, LIM_SW_1, LIM_SW_2);
@@ -140,4 +139,3 @@ void timeOpenSecondValve(void *arg){
     vTaskDelete(NULL);
 }
 
-#endif 

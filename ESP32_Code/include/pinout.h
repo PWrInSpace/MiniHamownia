@@ -1,7 +1,7 @@
 #ifndef PINOUT_HH
 #define PINOUT_HH
 
-#include "FreeRTOS.h"
+// #include "freertos/FreeRTOS.h"
 #include "Arduino.h"
 
 #define ERROR_LED 0

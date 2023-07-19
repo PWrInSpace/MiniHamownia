@@ -3,7 +3,7 @@
 
 // System includes
 #include <Arduino.h>
-#include <FreeRTOS.h>
+// #include <FreeRTOS.h>
 #include <BluetoothSerial.h>
 
 // Main includes
