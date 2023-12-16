@@ -3,7 +3,7 @@
 
 void stateTask(void *arg)
 {
-  String stateMsg;
+  char stateMsg[100];
   while (1)
   {
     if (ulTaskNotifyTake(pdTRUE, portMAX_DELAY) == pdTRUE)
@@ -41,8 +41,7 @@ void stateTask(void *arg)
           }
           sm.calibrationTask = NULL;
         }
-
-        stateMsg = "State: IDLE";
+        sprintf(stateMsg, "State: IDLE");
         break;
 
       case CALIBRATION:
@@ -50,38 +49,37 @@ void stateTask(void *arg)
         vTaskSuspend(sm.uiTask);   // calibration task will handle ui
         vTaskSuspend(sm.dataTask); // calibration task need only data from load cell
 
-        xTaskCreatePinnedToCore(calibrationTask, "calibration task", 10000, NULL, 2, &sm.calibrationTask, APP_CPU_NUM);
+        xTaskCreatePinnedToCore(calibrationTask, "calibration task", 8192, NULL, 2, &sm.calibrationTask, APP_CPU_NUM);
 
         if (sm.calibrationTask == NULL)
         {
-          stateMsg = "Beep boop error, calibrationTask not created";
+          sprintf(stateMsg, "Error - calibrationTask not created");
           vTaskResume(sm.uiTask);
           vTaskResume(sm.dataTask);
           sm.changeState(IDLE);
         }
         else
         {
-          stateMsg = "State: CALIBRATION";
+          sprintf(stateMsg, "State: CALIBRATION");
         }
 
         break;
 
       case COUNTDOWN:
-        xTaskCreatePinnedToCore(staticFireTask, "static fire task", 10000, NULL, 3, &sm.staticFireTask, APP_CPU_NUM);
+        xTaskCreatePinnedToCore(staticFireTask, "static fire task", 8192, NULL, 3, &sm.staticFireTask, APP_CPU_NUM);
 
         if (sm.staticFireTask == NULL)
         {
-          stateMsg = "Beep boop error, staticFireTask not created";
+          sprintf(stateMsg, "Error - staticFireTask not created");
           sm.changeState(IDLE);
         }
         else
         {
-          stateMsg = "State: COUNTDOWN";
+          sprintf(stateMsg, "State: COUNTDOWN");
         }
-
         break;
       case STATIC_FIRE:
-        stateMsg = "State: STATIC_FIRE";
+        sprintf(stateMsg, "State: STATIC_FIRE");
         break;
       case ABORT:
         if (sm.staticFireTask != NULL)
@@ -92,7 +90,7 @@ void stateTask(void *arg)
         // close valve or sth
         digitalWrite(IGNITER, LOW);
         sm.timer.setDefault();
-        stateMsg = "State: ABORT";
+        sprintf(stateMsg, "State: ABORT");
         break;
       }
 

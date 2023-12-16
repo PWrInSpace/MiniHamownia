@@ -1,5 +1,8 @@
 #include "../../../include/tasks/loopTasks.h"
 
+#define TEST_TIME 1800000
+
+
 void staticFireTask(void *arg)
 {
   uint16_t countDownTime = btUI.getCountDownTime();
@@ -16,13 +19,13 @@ void staticFireTask(void *arg)
   TaskHandle_t secondValveTask = NULL;
   bool igniterState = LOW;
   uint8_t bipTimes = 1;
-  String msg;
+  char msg[100];
   //float maxThrust = 0.0;
-  vTaskDelay(1000 / portTICK_PERIOD_MS);
+  vTaskDelay(100 / portTICK_PERIOD_MS);
 
   // set timers
   testStartTime = millis() + countDownTime; // T0
-  testStopTime = (firstValveCloseTime > secondValveCloseTime ? firstValveCloseTime : secondValveCloseTime) + 30000 + testStartTime;
+  testStopTime = (firstValveCloseTime > secondValveCloseTime ? firstValveCloseTime : secondValveCloseTime) + TEST_TIME + testStartTime;
   sm.timer.setTimer(testStartTime);
 
   // countdown
@@ -32,15 +35,14 @@ void staticFireTask(void *arg)
 
     if ((timeInSec > 10) && (timeInSec % 5 == 0))
     {
-
-      msg = String(timeInSec);
-      xQueueSend(sm.btTxQueue, (void *)&msg, 0);
+      sprintf(msg, "T: -%d", timeInSec);
+      xQueueSend(sm.btTxQueue, &msg, 0);
     }
     else if (timeInSec <= 10)
     {
       bipTimes += 1;
-      msg = String(timeInSec);
-      xQueueSend(sm.btTxQueue, (void *)&msg, 0);
+      sprintf(msg, "%d", timeInSec);
+      xQueueSend(sm.btTxQueue, &msg, 0);
     }
 
     beepBoop(500, bipTimes); // delay include
@@ -49,23 +51,35 @@ void staticFireTask(void *arg)
 
   if (sm.state == ABORT)
   {
+    sprintf(msg, "ABORT");
+    xQueueSend(sm.btTxQueue, &msg, 0);
+    sm.timer.setDefault();
+    vTaskDelay(10 / portTICK_PERIOD_MS);
+    sm.staticFireTask = NULL;
     vTaskDelete(NULL);
   }
 
-  if (analogRead(CONTINUITY) < 512)
+  xSemaphoreTake(sm.analogMutex, portMAX_DELAY);
+  if (analogRead(CONTINUITY) < 512 && igniterState == LOW)
   {
-    msg = "Brak ciaglosci zapalnika";
-    xQueueSend(sm.btTxQueue, (void *)&msg, 0);
+    sprintf(msg, "Brak ciaglosci zapalnika - ABORT");
+    xQueueSend(sm.btTxQueue, &msg, 0);
     sm.changeState(ABORT);
+    sm.timer.setDefault();
+    vTaskDelay(10 / portTICK_PERIOD_MS);
+    sm.staticFireTask = NULL;
     vTaskDelete(NULL);
   }
+  xSemaphoreGive(sm.analogMutex);
 
   // ignition
   sm.changeState(STATIC_FIRE);
+  xQueueSend(sm.btTxQueue, &msg, 0);
   igniterState = HIGH;
   digitalWrite(IGNITER, igniterState);
-  msg = "Static fire fruuuuu!!!1!";
-  xQueueSend(sm.btTxQueue, (void *)&msg, 0);
+  vTaskDelay(10 / portTICK_PERIOD_MS);
+  sprintf(msg, "Rozpoczecie static fire.");
+  xQueueSend(sm.btTxQueue, &msg, 0);
 
   // test start time is T0.00
   // valve control
@@ -82,20 +96,20 @@ void staticFireTask(void *arg)
           valveOpenTime = firstValveCloseTime - firstValveOpenTime;
           xTaskCreatePinnedToCore(timeOpenFirstValve, "Valve 1", 1500, (void *)&valveOpenTime, 2, &firstValveTask, APP_CPU_NUM);
 
-          msg = "First valve open for: " + String(valveOpenTime);
-          xQueueSend(sm.btTxQueue, (void *)&msg, 0);
-          msg = "LOG: First valve open for: " + String(valveOpenTime);
-          xQueueSend(sm.sdQueue, (void *)&msg, 0);
+          sprintf(msg, "First valve open for: %d", valveOpenTime);
+          xQueueSend(sm.btTxQueue, &msg, 0);
+          sprintf(msg, "LOG: First valve open for: %d", valveOpenTime);
+          xQueueSend(sm.sdQueue, &msg, 0);
           // open
         }
         else
         {
           xTaskCreatePinnedToCore(openFirstValve, "Valve 1 open", 1500, NULL, 2, &firstValveTask, APP_CPU_NUM);
 
-          msg = "First valve open";
-          xQueueSend(sm.btTxQueue, (void *)&msg, 0);
-          msg = "LOG: First valve open for: " + String(valveOpenTime);
-          xQueueSend(sm.sdQueue, (void *)&msg, 0);
+          sprintf(msg, "First valve open");
+          xQueueSend(sm.btTxQueue, &msg, 0);
+          sprintf(msg, "LOG: First valve open for: %d", valveOpenTime);
+          xQueueSend(sm.sdQueue, &msg, 0);
         }
       }
     }
@@ -111,35 +125,36 @@ void staticFireTask(void *arg)
           valveOpenTime = secondValveCloseTime - secondValveOpenTime;
           xTaskCreatePinnedToCore(timeOpenSecondValve, "Valve 2", 1500, (void *)&valveOpenTime, 2, &secondValveTask, APP_CPU_NUM);
 
-          msg = "Second valve open for: " + String(valveOpenTime);
-          xQueueSend(sm.btTxQueue, (void *)&msg, 0);
-          msg = "LOG: Second valve open for: " + String(valveOpenTime);
-          xQueueSend(sm.sdQueue, (void *)&msg, 0);
+          sprintf(msg, "Second valve open for: %d", valveOpenTime);
+          xQueueSend(sm.btTxQueue, &msg, 0);
+          sprintf(msg, "LOG: Second valve open for: %d", valveOpenTime);
+          xQueueSend(sm.sdQueue, &msg, 0);
           // open
         }
         else
         {
           xTaskCreatePinnedToCore(openSecondValve, "Valve 2 open", 1500, NULL, 2, &secondValveTask, APP_CPU_NUM);
 
-          msg = "Second valve open";
-          xQueueSend(sm.btTxQueue, (void *)&msg, 0);
-          msg = "LOG: Second valve open for: " + String(valveOpenTime);
-          xQueueSend(sm.sdQueue, (void *)&msg, 0);
+          sprintf(msg, "Second valve open");
+          xQueueSend(sm.btTxQueue, &msg, 0);
+          sprintf(msg, "LOG: Second valve open for: %d", valveOpenTime);
+          xQueueSend(sm.sdQueue, &msg, 0);
         }
         //if()
       }
     }
 
     // igniter
-    if (((millis() - testStartTime) > 1000) && (igniterState == HIGH))
+    if (((millis() - testStartTime) > 3000) && (igniterState == HIGH)) //Turn off the igniter
     {
       igniterState = LOW;
       digitalWrite(IGNITER, igniterState);
     }
-
     vTaskDelay(10 / portTICK_PERIOD_MS);
   }
 
+  sprintf(msg, "End of static fire - end of data logging.");
+  xQueueSend(sm.btTxQueue, &msg, 0);
   sm.timer.setDefault();
   sm.changeState(IDLE);
   sm.staticFireTask = NULL;

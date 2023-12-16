@@ -36,6 +36,7 @@ typedef struct StateMachine{
     QueueHandle_t sdQueue = NULL;
 
     SemaphoreHandle_t spiMutex = NULL;
+    SemaphoreHandle_t analogMutex = NULL;
     portMUX_TYPE spinlock = portMUX_INITIALIZER_UNLOCKED;
     
     void changeState(State _state){

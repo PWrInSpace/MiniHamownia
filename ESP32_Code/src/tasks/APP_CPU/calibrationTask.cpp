@@ -36,14 +36,8 @@ void calibrationTask(void *arg)
 
   if (xQueueReceive(sm.btRxQueue, (void *)&btMsg, portMAX_DELAY) == pdTRUE)
   {
-    if (btMsg == "LC1;" || btMsg == "LC2;")
+    if (btMsg == "LC1;")
     {
-      if (btMsg == "LC2;") // default is LC1
-      {
-        dt = LC2_DT;
-        clk = LC2_CLK;
-        setLoadCell = SECOND_LOAD_CELL;
-      }
       HX711_ADC LoadCell(dt, clk);
       LoadCell.begin();
       LoadCell.start(stabilizingTime, _tare);
@@ -105,37 +99,6 @@ void calibrationTask(void *arg)
         {
           btUI.setCalibrationFactor((uint16_t)newCalFactor, setLoadCell);
           btUI.switchCalibrationFactorsFlag();
-          btUI.saveToFlash();
-          btMsg = "Saved value to flash";
-        }
-        else
-        {
-          btMsg = "Did not save to flash";
-        }
-        xQueueSend(sm.btTxQueue, (void *)&btMsg, 10);
-      }
-    }
-  }
-  else if (btMsg == "PSC;")
-  {
-    Trafag8252 pressureSens(PRESS_SENS, 1.0);
-    btMsg = "Type pressure value in Bar (float)";
-    xQueueSend(sm.btTxQueue, (void *)&btMsg, 50);
-
-    if (xQueueReceive(sm.btRxQueue, (void *)&btMsg, portMAX_DELAY) == pdTRUE)
-    {
-      if (btMsg.toFloat())
-      {
-        pressure = btMsg.toFloat();
-      }
-      float newCalibrationVal = pressureSens.sensorCalibration(pressure);
-      btMsg = "New calibration value is " + String(newCalibrationVal) + ". Save to flash? (Y/N)";
-      xQueueSend(sm.btTxQueue, (void *)&btMsg, 10);
-      if (xQueueReceive(sm.btRxQueue, (void *)&btMsg, portMAX_DELAY) == pdTRUE)
-      {
-        if (btMsg.equalsIgnoreCase("Y"))
-        {
-          btUI.setPressureSensCalibrationFactor((uint16_t)newCalibrationVal);
           btUI.saveToFlash();
           btMsg = "Saved value to flash";
         }

@@ -21,7 +21,7 @@ SPIClass myspi(HSPI);
 void setup()
 {
     Serial.begin(115200);  //debug only
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
+    vTaskDelay(25 / portTICK_PERIOD_MS);
 
     //myspi.begin(SCK, MISO, MOSI);
     
@@ -43,22 +43,23 @@ void setup()
     secondValve.init();
 
     sm.spiMutex = xSemaphoreCreateMutex();
+    sm.analogMutex = xSemaphoreCreateMutex();
 
     sm.btRxQueue = xQueueCreate(Rx_QUEUE_LENGTH, sizeof(String));
-    sm.btTxQueue = xQueueCreate(Tx_QUEUE_LENGTH, sizeof(String));
-    sm.sdQueue   = xQueueCreate(SD_QUEUE_LENGTH, sizeof(String));
+    sm.btTxQueue = xQueueCreate(Tx_QUEUE_LENGTH, 100 * sizeof(char));
+    sm.sdQueue   = xQueueCreate(SD_QUEUE_LENGTH, 100 * sizeof(char));
     
     xTaskCreatePinnedToCore(btReceiveTask,  "Bt rx task", 4096, NULL, 2, &sm.btRxTask, PRO_CPU_NUM);
     xTaskCreatePinnedToCore(btTransmitTask, "Bt tx task", 4096, NULL, 2, &sm.btTxTask, PRO_CPU_NUM);
-    xTaskCreatePinnedToCore(uiTask,         "Ui task",    4096, NULL, 1, &sm.uiTask,   PRO_CPU_NUM);
+    xTaskCreatePinnedToCore(dataTask,       "data task",  8192, NULL, 1, &sm.dataTask, PRO_CPU_NUM);
 
-    xTaskCreatePinnedToCore(stateTask,      "State task", 4096,  NULL, 3, &sm.stateTask, APP_CPU_NUM);
-    xTaskCreatePinnedToCore(dataTask,       "data task",  8192, NULL, 2, &sm.dataTask,  APP_CPU_NUM);
+    xTaskCreatePinnedToCore(uiTask,         "Ui task",    4096, NULL, 1, &sm.uiTask,    APP_CPU_NUM);
+    xTaskCreatePinnedToCore(stateTask,      "State task", 4096, NULL, 3, &sm.stateTask, APP_CPU_NUM);
     xTaskCreatePinnedToCore(sdTask,         "SD task",    8192, NULL, 1, &sm.sdTask,    APP_CPU_NUM);
 
     //TO DO: check tasks
 
-    vTaskDelay(1000 / portTICK_PERIOD_MS); 
+    vTaskDelay(25 / portTICK_PERIOD_MS); 
 
     if(sm.btRxTask == NULL || sm.btTxTask == NULL || sm.uiTask == NULL){
         btUI.println("Pro_cpu task error");
@@ -76,7 +77,7 @@ void setup()
     }
 
     //welcome screen
-    btUI.println("MiniHamownia v1.0 aka Rozkurwiacz");
+    btUI.println("MiniHamownia v1.0 aka Rozkurwiacz (Spierdolina)");
     btUI.println(btUI.timersDescription());
     sm.changeState(IDLE);
 

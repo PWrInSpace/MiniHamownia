@@ -6,7 +6,7 @@ void uiTask(void *arg)
   String prefix = "MH;"; // prefix
   String command;
   uint32_t time;
-  String btTx;
+  char btTx[100];
   TickType_t askTime = 0;
   TickType_t askTimeOut = 30000;
 
@@ -33,16 +33,16 @@ void uiTask(void *arg)
           if (command[2] == '1')
           {
             xTaskCreatePinnedToCore(openFirstValve, "First Val open", 2048, NULL, 2, NULL, APP_CPU_NUM);
-            btTx = "First valve open";
+            sprintf(btTx, "First valve open");
           }
           else if (command[2] == '2')
           {
             xTaskCreatePinnedToCore(openSecondValve, "second Val open", 2048, NULL, 2, NULL, APP_CPU_NUM);
-            btTx = "Second valve open";
+            sprintf(btTx, "Second valve open");
           }
           else
           {
-            btTx = "Unknown valve number";
+            sprintf(btTx, "Unknown valve number");
           }
         }
         else if (command == "MC1;" || command == "MC2;")
@@ -50,16 +50,16 @@ void uiTask(void *arg)
           if (command[2] == '1')
           {
             xTaskCreatePinnedToCore(closeFirstValve, "First Val close", 2048, NULL, 2, NULL, APP_CPU_NUM);
-            btTx = "First valve closed";
+            sprintf(btTx, "First valve closed");
           }
           else if (command[2] == '2')
           {
             xTaskCreatePinnedToCore(closeSecondValve, "second Val close", 2048, NULL, 2, NULL, APP_CPU_NUM);
-            btTx = "Second valve closed";
+            sprintf(btTx, "Second valve closed");
           }
           else
           {
-            btTx = "Unknown valve number";
+            sprintf(btTx, "Unknown valve number");
           }
         }
         else if (command == "TO1;" || command == "TO2;")
@@ -67,27 +67,27 @@ void uiTask(void *arg)
           if (command[2] == '1')
           {
             xTaskCreatePinnedToCore(timeOpenFirstValve, "First val time open", 2048, (void *)&time, 2, NULL, APP_CPU_NUM); // i think it won't work xDD
-            btTx = "First valve open for " + String(time);
+            sprintf(btTx, "First valve open for %d", time);
           }
           else if (command[2] == '2')
           {
             xTaskCreatePinnedToCore(timeOpenSecondValve, "Second val time open", 2048, (void *)&time, 2, NULL, APP_CPU_NUM);
-            btTx = "First valve open for " + String(time);
+            sprintf(btTx, "First valve open for %d", time);
           }
           else
           {
-            btTx = "Unknown valve number";
+            sprintf(btTx, "Unknown valve number");
           }
         }
         else if (command == "VO1;" || command == "VO2;")
         {
           if (btUI.setValveOpenTimer(time, command[2] - 48))
           {
-            btTx = "Valve " + String(command[2] - 48) + " New open time: " + String(btUI.getValveOpenTimer(command[2] - 48));
+            sprintf(btTx, "Valve %s New open time: %d", command[2] - 48, btUI.getValveOpenTimer(command[2] - 48));
           }
           else
           {
-            btTx = "Failed to save";
+            sprintf(btTx, "Failed to save");
           }
 
           // valve close timer
@@ -96,11 +96,11 @@ void uiTask(void *arg)
         {
           if (btUI.setValveCloseTimer(time, command[2] - 48))
           {
-            btTx = "Valve " + String(command[2] - 48) + " New close time: " + String(btUI.getValveCloseTimer(command[2] - 48));
+            sprintf(btTx, "Valve %s New close time: %d", command[2] - 48, btUI.getValveCloseTimer(command[2] - 48));
           }
           else
           {
-            btTx = "Failed to save";
+            sprintf(btTx, "Failed to save");
           }
 
           // valve enable
@@ -109,11 +109,11 @@ void uiTask(void *arg)
         {
           if (btUI.setValveState(time, command[2] - 48))
           {
-            btTx = "Valve " + String(command[2] - 48) + (btUI.getValveState(command[2] - 48) > 0 ? " enable" : " disable");
+            sprintf(btTx, "Valve %s %s", String(command[2] - 48), (btUI.getValveState(command[2] - 48) > 0 ? "enable" : "disable"));
           }
           else
           {
-            btTx = "Failed to save";
+            sprintf(btTx, "Failed to save");
           }
 
           // count down timer
@@ -122,40 +122,40 @@ void uiTask(void *arg)
         {
           if (btUI.setCountDownTime(time))
           {
-            btTx = "New countdown time:  " + String(btUI.getCountDownTime());
+            sprintf(btTx, "New countdown time: %d", btUI.getCountDownTime());
           }
           else
           {
-            btTx = "Failed to save";
+            sprintf(btTx, "Failed to save");
           }
         }
         else if (command == "JP1;")
         {
           btUI.setCalibrationFactor(time, FIRST_LOAD_CELL); // value not time :D
-          btTx = "New calibration factor:  " + String(btUI.getCalibrationFactor(FIRST_LOAD_CELL));
+          sprintf(btTx, "New calibration factor: %d", btUI.getCalibrationFactor(FIRST_LOAD_CELL));
         }
         else if (command == "JP2;")
         {
           btUI.setCalibrationFactor(time, SECOND_LOAD_CELL); // value not time :D
-          btTx = "New calibration factor:  " + String(btUI.getCalibrationFactor(SECOND_LOAD_CELL));
+          sprintf(btTx, "New calibration factor: %d", btUI.getCalibrationFactor(SECOND_LOAD_CELL));
         }
         else if (command == "JP3;")
         {
           btUI.setPressureSensCalibrationFactor(time); // value not time :)
-          btTx = "New pressure sens calibration factor:  " + String(btUI.getPressureSensCalibrationFactor());
+          sprintf(btTx, "New pressure sens calibration factor: %d", btUI.getPressureSensCalibrationFactor());
         }
         else if (command == "LC1;" || command == "LC2;" || command == "PSC;")
         {
-          if (xQueueSend(sm.btRxQueue, (void *)&command, 0) == pdTRUE)
+          if (xQueueSend(sm.btRxQueue, &command, 0) == pdTRUE)
           {
             sm.changeState(CALIBRATION);
 
             vTaskSuspend(NULL); // double suspend check
-            btTx = "Calibration end";
+            sprintf(btTx, "Calibration end");
           }
           else
           {
-            btTx = "Couldn't start calibration";
+            sprintf(btTx, "Couldn't start calibration");
           }
 
           // save to flash
@@ -164,19 +164,19 @@ void uiTask(void *arg)
         {
           btUI.saveToFlash();
 
-          btTx = "Saved to flash";
+          sprintf(btTx, "Saved to flash");
           btUI.switchCalibrationFactorsFlag();
           // show current setings
         }
         else if (command == "SCS;")
         {
-          btTx = btUI.timersDescription();
+          btUI.println(btUI.timersDescription());
 
           // enable/disable data frame to user
         }
         else if (command == "SDF;")
         {
-          btTx = "Data frame "; // enable / disable
+          sprintf(btTx, "Data frame "); // enable / disable
           // set flag btTxFlag
 
           // start static fire task
@@ -184,44 +184,44 @@ void uiTask(void *arg)
         else if (command == "SFS;")
         {
           // Igniter continuity check
+          xSemaphoreTake(sm.analogMutex, portMAX_DELAY);
           if (analogRead(CONTINUITY) > 512)
           {
             if (btUI.checkTimers())
             {                                                     // check timers
               askTime = xTaskGetTickCount() * portTICK_PERIOD_MS; // start timer
-              btTx = btUI.timersDescription();                    // show timers
-
-              btTx += "\n\nDo you want to start test with this settings? Write MH;SFY;"; // ask
+              btUI.println(btUI.timersDescription());
+              sprintf(btTx, "\n\nDo you want to start test with this settings? Write MH;SFY;");                    // show timers
             }
             else
             {
-              btTx = "Invalid valve setings";
+              sprintf(btTx, "Invalid valve setings");
             }
           }
           else
           {
             askTime = 0;
-            btTx = "Lack of igniter continuity! :C";
+            sprintf(btTx, "Lack of igniter continuity! :C");
           }
-
+          xSemaphoreGive(sm.analogMutex);
           //
         }
         else if (command == "SFY;")
         {
           if (askTime == 0)
           {
-            btTx = "Unknown command";
+            sprintf(btTx, "Unknown command");
           }
           else if ((xTaskGetTickCount() * portTICK_PERIOD_MS) - askTime < askTimeOut)
           {
             btUI.saveToFlash();
-            btTx = "create static fire task";
+            sprintf(btTx, "create static fire task");
             askTime = 0;
             sm.changeState(COUNTDOWN);
           }
           else
           {
-            btTx = "Static fire ask time out!";
+            sprintf(btTx, "Static fire ask time out!");
             askTime = 0;
           }
 
@@ -229,47 +229,41 @@ void uiTask(void *arg)
         }
         else if (command == "RST;")
         {
-          btTx = "Esp is going to sleep";
+          sprintf(btTx, "Esp is going to sleep");
           ESP.restart();
         }
         else if (command == "BTF;")
         {
           if (btUI.switchDataFlag())
-            btTx = "Switched BT Data Flag";
+            sprintf(btTx, "Switched BT Data Flag");
           else
           {
-            btTx = "ERROR: cannot switch BT Data Flag";
+            sprintf(btTx, "ERROR: cannot switch BT Data Flag");
           }
         }
         else if(command == "TA1;")
         {
           btUI.switchTareFlag(_mainLoadCell);
-          btTx = "Taring main load cell...";
-        }
-        else if(command == "TA2;")
-        {
-          btUI.switchTareFlag(_oxidizerLoadCell);
-          btTx = "Taring oxidizer load cell...";
+          sprintf(btTx, "Taring main load cell...");
         }
         else
         {
-          btTx = "Unknown command";
+          sprintf(btTx, "Unknown command");
         }
 
         if (command != "SFS;" && askTime != 0)
         {
           askTime = 0;
         }
-
-        xQueueSend(sm.btTxQueue, (void *)&btTx, 10);
+        xQueueSend(sm.btTxQueue, &btTx, 10);
       }
       else
       {
-        btTx = "Unknown command or not IDLE state";
-        xQueueSend(sm.btTxQueue, (void *)&btTx, 10);
+        sprintf(btTx, "Unknown command or not IDLE state");
+        xQueueSend(sm.btTxQueue, &btTx, 10);
       }
     }
 
-    vTaskDelay(10 / portTICK_PERIOD_MS);
+    vTaskDelay(100 / portTICK_PERIOD_MS);
   }
 }

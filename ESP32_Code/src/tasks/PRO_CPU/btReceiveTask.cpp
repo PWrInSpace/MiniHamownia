@@ -2,14 +2,13 @@
 
 void btReceiveTask(void *arg)
 {
-  // pinMode(BUZZER, OUTPUT); //move to pinout.h
   String msg;
+  char msgOut[100];
 
   while (true)
   {
     if (btUI.isConnected())
     {
-
       if (btUI.available())
       {
         msg = btUI.readString();
@@ -25,8 +24,8 @@ void btReceiveTask(void *arg)
       }
       else
       {
-        msg = "LOG: Disconnected in state: " + String(sm.state) + "\n";
-        xQueueSend(sm.sdQueue, (void *)&msg, 0);
+        sprintf(msgOut, "LOG: Disconnected in state: %d", sm.state);
+        xQueueSend(sm.sdQueue, &msgOut, 0);
       }
 
       // disconnected sound
@@ -44,8 +43,8 @@ void btReceiveTask(void *arg)
         sm.changeState(IDLE);
       }
 
-      msg = "State: " + String(sm.state);
-      xQueueSend(sm.btTxQueue, (void *)&msg, 10);
+      sprintf(msgOut, "State: %d", sm.state);
+      xQueueSend(sm.btTxQueue, &msgOut, 10);
       //}
     }
 

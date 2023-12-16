@@ -28,7 +28,7 @@ class DCValve{
     void open();  
     void close();
     void timeOpen(uint32_t time);
-    String getPosition();
+    int8_t getPosition();
 };
 
 void openFirstValve(void *arg);

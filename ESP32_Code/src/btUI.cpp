@@ -94,12 +94,12 @@ String BluetoothUI::timersDescription(){
     timersMsg += firstValveEnable > 0 ? "Enable" : "Disable";
     timersMsg += "\nOpen time: " + String(firstValveOpenTime) + "\n";
     timersMsg += "Close time: " + String(firstValveCloseTime) + "\n\n";
-    /*
+    
     timersMsg += "Valve 2: ";
     timersMsg += secondValveEnable > 0 ? "Enable" : "Disable";
     timersMsg += "\nOpen time: " + String(secondValveOpenTime) + "\n";
     timersMsg += "Close time: " + String(secondValveCloseTime);
-    */
+    
     return timersMsg;
 }
 

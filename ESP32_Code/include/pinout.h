@@ -30,12 +30,9 @@
 #define SCK 14
 #define SD_CS 15
 
-// LOAD CELLS //
-#define LC2_DT 16
-#define LC2_CLK 17
-
-#define LC1_DT 35
-#define LC1_CLK 32
+// LOAD CELL //
+#define LC1_DT 16
+#define LC1_CLK 17
 
 // THERMOCOUPLES
 #define THERMO1_CS 27

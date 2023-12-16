@@ -87,17 +87,17 @@ void DCValve::timeOpen(uint32_t time){
     this->close();
 }
 
-String DCValve::getPosition()
+int8_t DCValve::getPosition()
 {
     if(!digitalRead(limitSwitchPin1))
     {
-        return String("Valve closed");
+        return 0; //Valve closed
     }
     else if(!digitalRead(limitSwitchPin2))
     {
-        return String("Valve open");
+        return 1; //Valve open
     }
-    else return String("Valve moving");
+    else return 2; //Valve moving
 }
 
 

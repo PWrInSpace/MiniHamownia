@@ -10,12 +10,10 @@ class Trafag8252
 {
     private:
     const uint8_t pressurePinADC;
-    uint16_t calibrationConstant;
 
     public:
-    Trafag8252(uint8_t _pressurePinADC, uint16_t _calibrationConstant);
+    Trafag8252(uint8_t _pressurePinADC);
     float getPressure();
-    float sensorCalibration(const float &pressure);
 };
 
 #endif
