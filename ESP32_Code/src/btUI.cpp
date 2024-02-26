@@ -45,17 +45,26 @@ bool BluetoothUI::checkTimers(){
     return true;
 }
 
-bool BluetoothUI::checkDataFlag()
+bool BluetoothUI::checkBtFlag()
 {
     return this->btDataFlag;
 }
 
-bool BluetoothUI::switchDataFlag()
+bool BluetoothUI::switchBtFlag()
 {
     this->btDataFlag = !this->btDataFlag;
-    if(this->btDataFlag)
-        return true;
-    return false;
+    return true;
+}
+
+bool BluetoothUI::checkCTFlag()
+{
+    return this->ctFlag;
+}
+
+bool BluetoothUI::switchCtFlag()
+{
+    this->ctFlag = !this->ctFlag;
+    return this->ctFlag;
 }
 
 bool BluetoothUI::checkCalibrationFactorsFlag()
@@ -66,9 +75,7 @@ bool BluetoothUI::checkCalibrationFactorsFlag()
 bool BluetoothUI::switchCalibrationFactorsFlag()
 { 
     this->btCheckCalibrationFlag = !this->btCheckCalibrationFlag;
-    if(this->btCheckCalibrationFlag)
-        return true;
-    return false;
+    return this->btCheckCalibrationFlag;
 }
 
 bool BluetoothUI::checkTareFlag(bool cell)
@@ -79,9 +86,7 @@ bool BluetoothUI::checkTareFlag(bool cell)
 bool BluetoothUI::switchTareFlag(bool cell)
 { 
     this->btTareFlag[cell] = !this->btTareFlag[cell];
-    if(this->btTareFlag[cell])
-        return true;
-    return false;
+    return this->btTareFlag[cell];
 }
 
 String BluetoothUI::timersDescription(){
@@ -89,6 +94,7 @@ String BluetoothUI::timersDescription(){
     timersMsg = "Calibration Factor: " + String(firstLoadCellCalibrationFactor) + "\n";
     timersMsg += "Pressure Sensor Calibration Factor: " + String(pressureSensCalibrationFactor) +"\n";
     timersMsg += "Countdown: " + String(countDownTime) + "\n\n";
+    timersMsg += "Logging time: " + String(testTime) + "\n\n";
 
     timersMsg += "Valve 1: "; 
     timersMsg += firstValveEnable > 0 ? "Enable" : "Disable";
@@ -115,11 +121,17 @@ void BluetoothUI::saveToFlash(){
 
     flashFrame[elem++] |= countDownTime >> 8;
     flashFrame[elem++] |= countDownTime;
+
+    flashFrame[elem++] |= testTime >> 24;
+    flashFrame[elem++] |= testTime >> 16;
+    flashFrame[elem++] |= testTime >> 8;
+    flashFrame[elem++] |= testTime;
     
     flashFrame[elem++] |= firstValveOpenTime >> 24;
     flashFrame[elem++] |= firstValveOpenTime >> 16;
     flashFrame[elem++] |= firstValveOpenTime >> 8;
     flashFrame[elem++] |= firstValveOpenTime;
+
     flashFrame[elem++] |= firstValveCloseTime >> 24;
     flashFrame[elem++] |= firstValveCloseTime >> 16;
     flashFrame[elem++] |= firstValveCloseTime >> 8;
@@ -130,10 +142,12 @@ void BluetoothUI::saveToFlash(){
     flashFrame[elem++] |= secondValveOpenTime >> 16;
     flashFrame[elem++] |= secondValveOpenTime >> 8;
     flashFrame[elem++] |= secondValveOpenTime;
+
     flashFrame[elem++] |= secondValveCloseTime >> 24;
     flashFrame[elem++] |= secondValveCloseTime >> 16;
     flashFrame[elem++] |= secondValveCloseTime >> 8;
     flashFrame[elem++] |= secondValveCloseTime;
+
     flashFrame[elem++] |= secondValveEnable;
 
     flashFrame[elem++] |= pressureSensCalibrationFactor >> 8;
@@ -164,25 +178,33 @@ void BluetoothUI::readFlash(){
     countDownTime |= flashFrame[elem++] << 8;
     countDownTime |= flashFrame[elem++];
 
+    testTime |= flashFrame[elem++] << 24;
+    testTime |= flashFrame[elem++] << 16;
+    testTime |= flashFrame[elem++] << 8;
+    testTime |= flashFrame[elem++];
     
     firstValveOpenTime |= flashFrame[elem++] << 24;
     firstValveOpenTime |= flashFrame[elem++] << 16;
     firstValveOpenTime |= flashFrame[elem++] << 8;
     firstValveOpenTime |= flashFrame[elem++];
+
     firstValveCloseTime |= flashFrame[elem++] << 24;
     firstValveCloseTime |= flashFrame[elem++] << 16;
     firstValveCloseTime |= flashFrame[elem++] << 8;
     firstValveCloseTime |= flashFrame[elem++];
+
     firstValveEnable |= flashFrame[elem++];
 
     secondValveOpenTime |= flashFrame[elem++] << 24;
     secondValveOpenTime |= flashFrame[elem++] << 16;
     secondValveOpenTime |= flashFrame[elem++] << 8;
     secondValveOpenTime |= flashFrame[elem++];
+
     secondValveCloseTime |= flashFrame[elem++] << 24;
     secondValveCloseTime |= flashFrame[elem++] << 16;
     secondValveCloseTime |= flashFrame[elem++] << 8;
     secondValveCloseTime |= flashFrame[elem++];
+
     secondValveEnable |= flashFrame[elem++];
 
     pressureSensCalibrationFactor |= flashFrame[elem++] << 8;
@@ -240,6 +262,21 @@ bool BluetoothUI::setCountDownTime(uint16_t time){
 uint16_t BluetoothUI::getCountDownTime() const{
     return countDownTime;
 }
+
+bool BluetoothUI::setTestTime(uint32_t time)
+{
+    if(time >= 5000)
+    {
+        testTime = time;
+        return true;
+    }
+    return false;
+}
+
+uint32_t BluetoothUI::getTestTime() const
+{
+    return testTime;
+}  
 
 bool BluetoothUI::setValveOpenTimer(uint32_t time, uint8_t valve){
     switch(valve){
@@ -303,12 +340,21 @@ uint32_t BluetoothUI::getValveCloseTimer(uint8_t valve){
 
 bool BluetoothUI::setValveState(uint8_t state, uint8_t valve){
     if(state > 1) state = 1;
-
     switch(valve){
         case 1:
+            if(!state)
+            {
+                firstValveOpenTime = 0;
+                firstValveCloseTime = 0;
+            }
             firstValveEnable = state;
             break;
         case 2:
+            if(!state)
+            {
+                secondValveOpenTime = 0;
+                secondValveCloseTime = 0;
+            }
             secondValveEnable = state;
             break;
         default:

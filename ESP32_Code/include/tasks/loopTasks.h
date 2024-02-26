@@ -16,6 +16,8 @@
 #include "../hardware/max6675.h"
 #include "../hardware/trafag8252.h"
 #include "../hardware/DCValve.h"
+#include "../hardware/ContinuityCheck.h"
+#include "../hardware/BatteryCheck.h"
 
 // External includes
 #include "HX711_ADC.h"

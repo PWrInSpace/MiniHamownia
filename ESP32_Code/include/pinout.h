@@ -3,12 +3,14 @@
 
 // #include "freertos/FreeRTOS.h"
 #include "Arduino.h"
+#include <driver/adc.h>
+#include "esp_adc_cal.h"
 
 #define ERROR_LED 0
 #define STATUS_LED 0
 
 // IGNITER //
-#define CONTINUITY 34
+#define CONTINUITY ADC1_CHANNEL_6
 #define IGNITER 4
 
 // DC motors //
@@ -19,7 +21,8 @@
 #define DC_PWM1 0
 
 // PRESSURE SENS //
-#define PRESS_SENS 36
+#define PRESS_SENS1 ADC1_CHANNEL_0
+#define PRESS_SENS2 ADC1_CHANNEL_4
 
 // BUZZER //
 #define BUZZER 2
@@ -39,15 +42,17 @@
 #define THERMO2_CS 26
 
 // BATTERY
-#define BATT_CHECK 39
+#define BATT_CHECK ADC1_CHANNEL_3
 
 // VALVE STATES
 #define VALVE_OPEN 2
 #define VALVE_BETWEEN 1
 #define VALVE_CLOSE 0
 
+// DEFAULT VREF FOR ADC1
+#define DEFAULT_VREF 1100
+
 void beepBoop(int delay, int times);
-float checkBattery(uint8_t batteryPin, const float &reverseDividerVal);
 void pinInit();
 enum loadCells
 {

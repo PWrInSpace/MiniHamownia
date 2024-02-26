@@ -18,7 +18,6 @@ void uiTask(void *arg)
       { // message in countdown state
 
         sm.changeState(ABORT);
-
         // frame check
       }
       else if (checkCommand(btMsg, prefix, ';', 2) && (sm.state == IDLE))
@@ -129,6 +128,17 @@ void uiTask(void *arg)
             sprintf(btTx, "Failed to save");
           }
         }
+        else if (command == "DLT;")
+        {
+          if(btUI.setTestTime(time))
+          {
+            sprintf(btTx, "New data loging time: %d", btUI.getTestTime());
+          }
+          else
+          {
+            sprintf(btTx, "Failed to save: %d", time);
+          }
+        }
         else if (command == "JP1;")
         {
           btUI.setCalibrationFactor(time, FIRST_LOAD_CELL); // value not time :D
@@ -185,7 +195,7 @@ void uiTask(void *arg)
         {
           // Igniter continuity check
           xSemaphoreTake(sm.analogMutex, portMAX_DELAY);
-          if (analogRead(CONTINUITY) > 512)
+          if (analogRead(CONTINUITY) > 512 || btUI.checkCTFlag())
           {
             if (btUI.checkTimers())
             {                                                     // check timers
@@ -224,21 +234,28 @@ void uiTask(void *arg)
             sprintf(btTx, "Static fire ask time out!");
             askTime = 0;
           }
-
-          // turn off esp
         }
-        else if (command == "RST;")
+        else if (command == "RST;") // turn off esp
         {
           sprintf(btTx, "Esp is going to sleep");
           ESP.restart();
         }
         else if (command == "BTF;")
         {
-          if (btUI.switchDataFlag())
+          if (btUI.switchBtFlag())
             sprintf(btTx, "Switched BT Data Flag");
           else
           {
             sprintf(btTx, "ERROR: cannot switch BT Data Flag");
+          }
+        }
+        else if (command == "CTO;") // Overrides continuity check - use with externaly controlled hybrid / liquid motors
+        {
+          if (btUI.switchCtFlag())
+            sprintf(btTx, "Switched Continuity Override Flag");
+          else
+          {
+            sprintf(btTx, "ERROR: cannot switch Continuity Override Flag");
           }
         }
         else if(command == "TA1;")
@@ -254,6 +271,27 @@ void uiTask(void *arg)
         if (command != "SFS;" && askTime != 0)
         {
           askTime = 0;
+        }
+        xQueueSend(sm.btTxQueue, &btTx, 10);
+      }
+      else if(checkCommand(btMsg, prefix, ';', 2) && (sm.state == STATIC_FIRE))
+      {
+        btMsg.remove(0, prefix.length());  // remove MH; prefix
+        command = btMsg.substring(0, 4); 
+        if(command == "STP;")
+        {
+          if(btUI.setTestTime((xTaskGetTickCount() * portTICK_PERIOD_MS) + 1000))
+          {
+            sprintf(btTx, "Test will end at: %d", btUI.getTestTime());
+          }
+          else
+          {
+            sprintf(btTx, "Failed to stop the test.");
+          }
+        }
+        else
+        {
+          sprintf(btTx, "Unknown command or not IDLE state");
         }
         xQueueSend(sm.btTxQueue, &btTx, 10);
       }

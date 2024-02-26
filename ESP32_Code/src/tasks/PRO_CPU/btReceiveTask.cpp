@@ -48,6 +48,6 @@ void btReceiveTask(void *arg)
       //}
     }
 
-    vTaskDelay(10 / portTICK_PERIOD_MS);
+    vTaskDelay(50 / portTICK_PERIOD_MS);
   }
 }

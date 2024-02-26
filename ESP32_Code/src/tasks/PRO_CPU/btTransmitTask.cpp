@@ -2,7 +2,7 @@
 
 void btTransmitTask(void *arg)
 {
-  char btMsg[100];
+  char btMsg[128];
 
   while (1)
   {
@@ -17,6 +17,6 @@ void btTransmitTask(void *arg)
       // error
     }
 
-    vTaskDelay(12 / portTICK_PERIOD_MS);
+    vTaskDelay(50 / portTICK_PERIOD_MS);
   }
 }

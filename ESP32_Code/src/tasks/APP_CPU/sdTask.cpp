@@ -3,13 +3,11 @@
 void sdTask(void *arg)
 {
   SDCard sd(&myspi, SD_CS);
-  char header[] = "TIME; THRUST; PRESSURE; CONTINUITY; VALVE_1_STATE; VALVE_2_STATE; BATTERY\n";
-  char data[100];
+  char header[] = "TIME; THRUST; PRESSURE1; PRESSURE2; CONTINUITY; VALVE_1_STATE; VALVE_2_STATE; BATTERY\n";
+  char data[128];
   uint16_t i = 0;
 
-  vTaskDelay(100 / portTICK_RATE_MS);
-
-  xSemaphoreTake(sm.spiMutex, portMAX_DELAY);
+  vTaskDelay(200 / portTICK_RATE_MS);
 
   while (!sd.init())
   {
@@ -29,13 +27,14 @@ void sdTask(void *arg)
   String logPath = "/logs_test_" + String(i) + ".txt";
   String dataPath = "/data_test_" + String(i) + ".csv";
 
+  xSemaphoreTake(sm.spiMutex, portMAX_DELAY);
   sd.write(dataPath, header);
   xSemaphoreGive(sm.spiMutex);
-
+  int32_t MeasurementTime;
   while (1)
   {
     while(uxQueueMessagesWaiting(sm.sdQueue) > 0)
-    {
+    {      
       if (xQueueReceive(sm.sdQueue, &data, portMAX_DELAY) == pdTRUE)
       {
         xSemaphoreTake(sm.spiMutex, portMAX_DELAY);
@@ -44,14 +43,14 @@ void sdTask(void *arg)
         { // write logs
           if (!sd.write(logPath, data))
           {
-            // error handling
+            // error 
           }
         }
         else
         { // write data
           if (!sd.write(dataPath, data))
           {
-            // error handling
+            //error
           }
         }
         xSemaphoreGive(sm.spiMutex);

@@ -6,7 +6,7 @@
 
 #define Rx_QUEUE_LENGTH 5
 #define Tx_QUEUE_LENGTH 10
-#define SD_QUEUE_LENGTH 15
+#define SD_QUEUE_LENGTH 40
 
 enum State{
     DISCONNECTED = 0,

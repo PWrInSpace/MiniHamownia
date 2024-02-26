@@ -6,6 +6,7 @@
 void staticFireTask(void *arg)
 {
   uint16_t countDownTime = btUI.getCountDownTime();
+  uint64_t dataLogingTime = btUI.getTestTime();
   uint32_t firstValveOpenTime = btUI.getValveOpenTimer(FIRST_VALVE);
   uint32_t firstValveCloseTime = btUI.getValveCloseTimer(FIRST_VALVE);
   uint8_t firstValveEnable = btUI.getValveState(FIRST_VALVE);
@@ -13,8 +14,8 @@ void staticFireTask(void *arg)
   uint32_t secondValveCloseTime = btUI.getValveCloseTimer(SECOND_VALVE);
   uint8_t secondValveEnable = btUI.getValveState(SECOND_VALVE);
   uint32_t valveOpenTime;
-  uint64_t testStartTime;
-  uint64_t testStopTime;
+  uint32_t testStartTime;
+  uint32_t testStopTime;
   TaskHandle_t firstValveTask = NULL;
   TaskHandle_t secondValveTask = NULL;
   bool igniterState = LOW;
@@ -25,7 +26,7 @@ void staticFireTask(void *arg)
 
   // set timers
   testStartTime = millis() + countDownTime; // T0
-  testStopTime = (firstValveCloseTime > secondValveCloseTime ? firstValveCloseTime : secondValveCloseTime) + TEST_TIME + testStartTime;
+  testStopTime = (firstValveCloseTime > secondValveCloseTime ? firstValveCloseTime : secondValveCloseTime) + dataLogingTime + testStartTime;
   sm.timer.setTimer(testStartTime);
 
   // countdown
@@ -60,7 +61,7 @@ void staticFireTask(void *arg)
   }
 
   xSemaphoreTake(sm.analogMutex, portMAX_DELAY);
-  if (analogRead(CONTINUITY) < 512 && igniterState == LOW)
+  if ((analogRead(CONTINUITY) < 512 && igniterState == LOW) && !btUI.checkCTFlag())
   {
     sprintf(msg, "Brak ciaglosci zapalnika - ABORT");
     xQueueSend(sm.btTxQueue, &msg, 0);
@@ -74,7 +75,7 @@ void staticFireTask(void *arg)
 
   // ignition
   sm.changeState(STATIC_FIRE);
-  xQueueSend(sm.btTxQueue, &msg, 0);
+  //xQueueSend(sm.btTxQueue, &msg, 0);
   igniterState = HIGH;
   digitalWrite(IGNITER, igniterState);
   vTaskDelay(10 / portTICK_PERIOD_MS);

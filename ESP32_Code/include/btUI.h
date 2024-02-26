@@ -4,7 +4,7 @@
 #include "BluetoothSerial.h"
 #include "EEPROM.h"
 
-#define DATA_SIZE 26 // 26 bytes of class data
+#define DATA_SIZE 30 // 30 bytes of class data
 #define FIRST_VALVE 1
 #define SECOND_VALVE 2
 
@@ -17,6 +17,7 @@ class BluetoothUI
     uint16_t secondLoadCellCalibrationFactor;
     uint16_t pressureSensCalibrationFactor;
     uint16_t countDownTime;
+    uint32_t testTime;
     uint32_t firstValveOpenTime;
     uint32_t firstValveCloseTime;
     uint8_t firstValveEnable;
@@ -26,6 +27,7 @@ class BluetoothUI
     // 16 first bits of flash memory
     BluetoothSerial BTSerial;
     bool btDataFlag;
+    bool ctFlag;
     bool btCheckCalibrationFlag;
     bool btTareFlag[2];
 
@@ -39,6 +41,8 @@ public:
     uint16_t getPressureSensCalibrationFactor() const;
     bool setCountDownTime(uint16_t time);
     uint16_t getCountDownTime() const;
+    bool setTestTime(uint32_t time);
+    uint32_t getTestTime() const;   
     bool setValveOpenTimer(uint32_t time, uint8_t valve);
     uint32_t getValveOpenTimer(uint8_t valve);
     bool setValveCloseTimer(uint32_t time, uint8_t valve);
@@ -47,8 +51,10 @@ public:
     uint8_t getValveState(uint8_t valve);
 
     bool checkTimers(); // check timers sequence
-    bool checkDataFlag();
-    bool switchDataFlag();
+    bool checkBtFlag();
+    bool switchBtFlag();
+    bool checkCTFlag(); //Checks if continuity override is applied
+    bool switchCtFlag();
     bool checkCalibrationFactorsFlag();
     bool switchCalibrationFactorsFlag();
     bool checkTareFlag(bool cell);
